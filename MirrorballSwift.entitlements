@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Intentionally NO com.apple.security.app-sandbox key. Mirrorball must spawn
+	     /usr/bin/ssh and read ~/.ssh/config, neither of which is possible under the
+	     App Sandbox. Hardened runtime stays on; spawning a separate process needs no
+	     extra entitlement. -->
+</dict>
+</plist>

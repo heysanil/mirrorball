@@ -1,0 +1,20 @@
+# Xcode / Tuist generated
+*.xcodeproj
+*.xcworkspace
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Tuist
+.tuist-bin/
+Tuist/.build/
+graph.dot
+
+# macOS
+.DS_Store
+
+# Build artifacts
+build/
+*.app
+*.dSYM
