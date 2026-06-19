@@ -112,6 +112,7 @@ struct ForwardEditorSheet: View {
                         .font(.caption)
                 }
                 .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
                 .fixedSize()
                 .help("Pick a host from ~/.ssh/config")
             }
