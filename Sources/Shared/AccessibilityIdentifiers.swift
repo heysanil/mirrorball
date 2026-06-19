@@ -24,5 +24,13 @@ enum A11y {
         static let save = "mb.editor.save"
         static let cancel = "mb.editor.cancel"
         static let error = "mb.editor.error"
+        static let authMethod = "mb.editor.authMethod"
+        static let identityFile = "mb.editor.identityFile"
+        static let chooseKey = "mb.editor.chooseKey"
+        static let secret = "mb.editor.secret"
+        static let removeSecret = "mb.editor.removeSecret"
+        static let sshPort = "mb.editor.sshPort"
+        static let jumpHost = "mb.editor.jumpHost"
+        static let extraOptions = "mb.editor.extraOptions"
     }
 }

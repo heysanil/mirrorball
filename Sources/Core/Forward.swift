@@ -51,6 +51,29 @@ enum ForwardKind: String, Codable, Sendable, CaseIterable, Identifiable {
     var usesRemoteEndpoint: Bool { self != .dynamic }
 }
 
+/// How `ssh` should authenticate for a forward. The secret itself (password or
+/// key passphrase) never lives on `Forward` — it is kept in the Keychain and
+/// injected via askpass at spawn time.
+enum SSHAuthMethod: String, Codable, Sendable, CaseIterable, Identifiable {
+    /// Default — let the running SSH agent provide credentials.
+    case agent
+    /// Authenticate with a private key file (`-i`), optional passphrase.
+    case key
+    /// Keyboard-interactive / password authentication.
+    case password
+
+    var id: String { rawValue }
+
+    /// Human title used in the authentication picker.
+    var title: String {
+        switch self {
+        case .agent: "SSH Agent"
+        case .key: "Key File"
+        case .password: "Password"
+        }
+    }
+}
+
 /// A single forward definition. Persisted verbatim to disk as JSON.
 ///
 /// A stable `id` is carried so SwiftUI lists and on-disk records keep identity
@@ -70,6 +93,16 @@ struct Forward: Codable, Sendable, Identifiable, Equatable {
     var remotePort: UInt16
     /// Whether this forward auto-starts on launch and is currently meant to run.
     var enabled: Bool
+    /// How `ssh` authenticates. Defaults to the SSH agent.
+    var authMethod: SSHAuthMethod
+    /// Path to the private key file, used when `authMethod == .key`.
+    var identityFile: String?
+    /// SSH server port (`-p`). `nil` (or 22) means the default port.
+    var sshPort: UInt16?
+    /// Optional jump/bastion host (`-J`), e.g. `user@bastion`.
+    var jumpHost: String?
+    /// Free-form `-o Key=Value` options, one entry per line.
+    var extraOptions: [String]
 
     init(
         id: UUID = UUID(),
@@ -79,7 +112,12 @@ struct Forward: Codable, Sendable, Identifiable, Equatable {
         listenPort: UInt16,
         remoteHost: String = "localhost",
         remotePort: UInt16 = 0,
-        enabled: Bool = false
+        enabled: Bool = false,
+        authMethod: SSHAuthMethod = .agent,
+        identityFile: String? = nil,
+        sshPort: UInt16? = nil,
+        jumpHost: String? = nil,
+        extraOptions: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -89,6 +127,11 @@ struct Forward: Codable, Sendable, Identifiable, Equatable {
         self.remoteHost = remoteHost
         self.remotePort = remotePort
         self.enabled = enabled
+        self.authMethod = authMethod
+        self.identityFile = identityFile
+        self.sshPort = sshPort
+        self.jumpHost = jumpHost
+        self.extraOptions = extraOptions
     }
 
     // Tolerant decoding: a hand-edited record missing `id` still loads (we mint a
@@ -103,6 +146,11 @@ struct Forward: Codable, Sendable, Identifiable, Equatable {
         remoteHost = try c.decodeIfPresent(String.self, forKey: .remoteHost) ?? "localhost"
         remotePort = try c.decodeIfPresent(UInt16.self, forKey: .remotePort) ?? 0
         enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        authMethod = try c.decodeIfPresent(SSHAuthMethod.self, forKey: .authMethod) ?? .agent
+        identityFile = try c.decodeIfPresent(String.self, forKey: .identityFile)
+        sshPort = try c.decodeIfPresent(UInt16.self, forKey: .sshPort)
+        jumpHost = try c.decodeIfPresent(String.self, forKey: .jumpHost)
+        extraOptions = try c.decodeIfPresent([String].self, forKey: .extraOptions) ?? []
     }
 }
 

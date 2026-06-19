@@ -24,6 +24,49 @@ enum SSHArguments {
         var args = commonOptions
         let remoteHost = forward.effectiveRemoteHost
 
+        // Non-default SSH server port (`-p`). Port 22 is the default, so omit it.
+        if let port = forward.sshPort, port != 22 {
+            args.append("-p")
+            args.append("\(port)")
+        }
+
+        // Private-key auth (`-i`). `IdentitiesOnly=yes` stops ssh from also
+        // offering agent keys, so we use exactly the file the user picked.
+        if forward.authMethod == .key {
+            let identity = (forward.identityFile ?? "").trimmingCharacters(in: .whitespaces)
+            if !identity.isEmpty {
+                args.append("-i")
+                args.append(identity)
+                args.append("-o")
+                args.append("IdentitiesOnly=yes")
+            }
+        }
+
+        // Jump/bastion host (`-J`).
+        let jump = (forward.jumpHost ?? "").trimmingCharacters(in: .whitespaces)
+        if !jump.isEmpty {
+            args.append("-J")
+            args.append(jump)
+        }
+
+        // Free-form `-o Key=Value` options, skipping blank lines.
+        for option in forward.extraOptions {
+            let trimmed = option.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty {
+                args.append("-o")
+                args.append(trimmed)
+            }
+        }
+
+        // Password auth: steer ssh toward interactive/password and cap the
+        // prompt count so a wrong secret fails fast instead of re-prompting.
+        if forward.authMethod == .password {
+            args.append("-o")
+            args.append("PreferredAuthentications=keyboard-interactive,password")
+            args.append("-o")
+            args.append("NumberOfPasswordPrompts=1")
+        }
+
         switch forward.kind {
         case .local:
             args.append("-L")

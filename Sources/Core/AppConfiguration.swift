@@ -40,6 +40,11 @@ struct AppConfiguration: Sendable {
         )
     }
 
+    /// Location of the askpass helper script ssh uses to fetch a secret.
+    var askpassScriptURL: URL {
+        configDirectory.appendingPathComponent("askpass.sh", isDirectory: false)
+    }
+
     /// `~/Library/Application Support/MirrorballSwift/`.
     static var defaultConfigDirectory: URL {
         let appSupport = FileManager.default

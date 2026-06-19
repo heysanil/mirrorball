@@ -1,13 +1,16 @@
 import SwiftUI
+import AppKit
 
-/// Add/edit sheet. Native grouped `Form`, segmented kind picker, and a host field
-/// with a `~/.ssh/config` suggestions menu. Validation keeps the sheet open and
-/// shows the error inline — saving is the only thing that dismisses it.
+/// Add/edit sheet. Native grouped `Form` with kind, connection, authentication,
+/// and advanced sections. Validation keeps the sheet open and shows the error
+/// inline — saving is the only thing that dismisses it. Stored secrets are never
+/// read back into the form; we only signal that one exists.
 struct ForwardEditorSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     let target: EditorTarget
+    private let entryID: UUID?
     @State private var draft: DraftForward
     @State private var validationError: String?
 
@@ -16,15 +19,14 @@ struct ForwardEditorSheet: View {
         switch target {
         case .new:
             _draft = State(initialValue: DraftForward())
+            entryID = nil
         case .edit(let entry):
             _draft = State(initialValue: DraftForward(entry.forward))
+            entryID = entry.id
         }
     }
 
-    private var isEditing: Bool {
-        if case .edit = target { return true }
-        return false
-    }
+    private var isEditing: Bool { entryID != nil }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -60,6 +62,9 @@ struct ForwardEditorSheet: View {
                             .accessibilityIdentifier(A11y.Editor.remotePort)
                     }
                 }
+
+                authenticationSection
+                advancedSection
             }
             .formStyle(.grouped)
 
@@ -92,9 +97,108 @@ struct ForwardEditorSheet: View {
             }
             .padding(16)
         }
-        .frame(width: 380)
+        .frame(width: 400)
         .animation(.easeInOut(duration: 0.15), value: validationError)
-        .task { model.refreshHostAliases() }
+        .task {
+            model.refreshHostAliases()
+            if let entryID { draft.hasStoredSecret = model.hasSecret(for: entryID) }
+        }
+    }
+
+    // MARK: - Sections
+
+    @ViewBuilder
+    private var authenticationSection: some View {
+        Section("Authentication") {
+            Picker("Method", selection: $draft.authMethod) {
+                ForEach(SSHAuthMethod.allCases) { method in
+                    Text(method.title).tag(method)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier(A11y.Editor.authMethod)
+
+            switch draft.authMethod {
+            case .agent:
+                Text("Uses your SSH agent and ~/.ssh/config keys.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .key:
+                HStack(spacing: 6) {
+                    TextField("Private key", text: $draft.identityFile, prompt: Text("~/.ssh/id_ed25519"))
+                        .font(.system(size: 12, design: .monospaced))
+                        .accessibilityIdentifier(A11y.Editor.identityFile)
+                    Button("Choose…") { chooseIdentityFile() }
+                        .accessibilityIdentifier(A11y.Editor.chooseKey)
+                }
+                secretField(label: "Passphrase", required: false)
+            case .password:
+                secretField(label: "Password", required: true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var advancedSection: some View {
+        Section {
+            DisclosureGroup("Advanced") {
+                TextField("SSH port", text: $draft.sshPort, prompt: Text("22"))
+                    .accessibilityIdentifier(A11y.Editor.sshPort)
+                TextField("Jump host", text: $draft.jumpHost, prompt: Text("user@bastion"))
+                    .accessibilityIdentifier(A11y.Editor.jumpHost)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Extra options")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextEditor(text: $draft.extraOptions)
+                        .font(.system(size: 12, design: .monospaced))
+                        .frame(height: 56)
+                        .accessibilityIdentifier(A11y.Editor.extraOptions)
+                    Text("One ssh -o option per line, e.g. ServerAliveInterval=30")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func secretField(label: String, required: Bool) -> some View {
+        let keepHint = draft.hasStoredSecret && !draft.clearSecret
+        SecureField(
+            label,
+            text: $draft.secretInput,
+            prompt: Text(keepHint ? "Leave blank to keep stored secret" : (required ? "Required" : "Optional"))
+        )
+        .accessibilityIdentifier(A11y.Editor.secret)
+
+        if draft.hasStoredSecret {
+            HStack(spacing: 6) {
+                if draft.clearSecret {
+                    Image(systemName: "trash")
+                        .foregroundStyle(Palette.statusWarn)
+                    Text("Stored secret will be removed")
+                        .font(.caption)
+                        .foregroundStyle(Palette.statusWarn)
+                    Spacer()
+                    Button("Undo") { draft.clearSecret = false }
+                        .buttonStyle(.link)
+                } else {
+                    Image(systemName: "lock.fill")
+                        .foregroundStyle(.secondary)
+                    Text("Stored in Keychain")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Remove") {
+                        draft.clearSecret = true
+                        draft.secretInput = ""
+                    }
+                    .buttonStyle(.link)
+                    .accessibilityIdentifier(A11y.Editor.removeSecret)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -119,6 +223,22 @@ struct ForwardEditorSheet: View {
         }
     }
 
+    // MARK: - Actions
+
+    private func chooseIdentityFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.showsHiddenFiles = true
+        panel.prompt = "Choose"
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".ssh", isDirectory: true)
+        if panel.runModal() == .OK, let url = panel.url {
+            draft.identityFile = url.path
+        }
+    }
+
     private func save() {
         switch draft.validate() {
         case .failure(let error):
@@ -126,9 +246,9 @@ struct ForwardEditorSheet: View {
         case .success(let forward):
             switch target {
             case .new:
-                model.add(forward)
+                model.add(forward, secret: draft.secretUpdate())
             case .edit(let entry):
-                model.update(entry, with: forward)
+                model.update(entry, with: forward, secret: draft.secretUpdate())
             }
             dismiss()
         }

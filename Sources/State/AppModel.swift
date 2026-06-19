@@ -16,14 +16,28 @@ final class AppModel {
     @ObservationIgnored let configuration: AppConfiguration
     @ObservationIgnored private let persistence: Persistence
     @ObservationIgnored private let notifier: Notifier
+    @ObservationIgnored private let secretStore: SecretStore
 
-    init(configuration: AppConfiguration = .fromEnvironment()) {
+    init(
+        configuration: AppConfiguration = .fromEnvironment(),
+        secretStore: SecretStore = KeychainSecretStore()
+    ) {
         self.configuration = configuration
         self.persistence = Persistence(configDirectory: configuration.configDirectory)
         self.notifier = Notifier(enabled: !configuration.disableSideEffects)
+        self.secretStore = secretStore
 
         let initial = AppModel.initialForwards(configuration: configuration, persistence: persistence)
         self.entries = initial.map(ForwardEntry.init)
+
+        // Install the askpass helper so password/passphrase forwards can hand their
+        // secret to ssh without it ever touching the command line.
+        try? AskpassHelper.install(at: configuration.askpassScriptURL)
+    }
+
+    /// Whether a secret is stored for a forward (drives the editor's "stored" UI).
+    func hasSecret(for id: UUID) -> Bool {
+        secretStore.hasSecret(for: id)
     }
 
     /// Seed from `MIRRORBALL_SEED` (tests) if present, else load persisted state.
@@ -90,9 +104,10 @@ final class AppModel {
     }
 
     @discardableResult
-    func add(_ forward: Forward) -> ForwardEntry {
+    func add(_ forward: Forward, secret: SecretUpdate = .unchanged) -> ForwardEntry {
         let entry = ForwardEntry(forward: forward)
         entries.append(entry)
+        secretStore.apply(secret, for: forward.id) // before start so the supervisor can read it
         if forward.enabled {
             startSupervising(entry)
         }
@@ -100,7 +115,7 @@ final class AppModel {
         return entry
     }
 
-    func update(_ entry: ForwardEntry, with forward: Forward) {
+    func update(_ entry: ForwardEntry, with forward: Forward, secret: SecretUpdate = .unchanged) {
         let wasSupervised = entry.isSupervised
         if wasSupervised {
             stopSupervising(entry)
@@ -108,6 +123,7 @@ final class AppModel {
         var updated = forward
         updated.id = entry.id // identity is owned by the entry, never the form
         entry.forward = updated
+        secretStore.apply(secret, for: entry.id)
         if updated.enabled {
             startSupervising(entry)
         }
@@ -116,13 +132,16 @@ final class AppModel {
 
     func delete(_ entry: ForwardEntry) {
         stopSupervising(entry)
+        secretStore.apply(.clear, for: entry.id)
         entries.removeAll { $0.id == entry.id }
         persist()
     }
 
     func delete(at offsets: IndexSet) {
         for index in offsets {
-            stopSupervising(entries[index])
+            let entry = entries[index]
+            stopSupervising(entry)
+            secretStore.apply(.clear, for: entry.id)
         }
         entries.remove(atOffsets: offsets)
         persist()
@@ -134,9 +153,14 @@ final class AppModel {
         stopSupervising(entry)
         entry.status = .starting
 
+        // Fetch the secret only for non-agent auth; pass the askpass script only
+        // when there's actually a secret to hand over.
+        let secret = entry.forward.authMethod == .agent ? nil : secretStore.secret(for: entry.id)
         let supervisor = TunnelSupervisor(
             forward: entry.forward,
-            sshExecutableURL: configuration.sshExecutableURL
+            sshExecutableURL: configuration.sshExecutableURL,
+            secret: secret,
+            askpassURL: secret == nil ? nil : configuration.askpassScriptURL
         )
         entry.supervisor = supervisor
 

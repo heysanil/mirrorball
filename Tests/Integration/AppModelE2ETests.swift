@@ -108,4 +108,26 @@ struct AppModelE2ETests {
         let reloaded = AppModel(configuration: config)
         #expect(reloaded.entries.isEmpty)
     }
+
+    @Test("A password forward authenticates via askpass and clears its secret on delete")
+    func passwordForwardAuthenticatesAndClearsSecret() async throws {
+        let store = InMemorySecretStore()
+        // Fake ssh only stays up if it fetches the right secret through askpass.
+        let config = try makeConfig(
+            sshBody: #"s=$("$SSH_ASKPASS" "Password:"); if [ "$s" = "swordfish" ]; then exec sleep 100000; else echo "auth failed" >&2; exit 1; fi"#
+        )
+        let model = AppModel(configuration: config, secretStore: store)
+
+        let entry = model.add(
+            Forward(name: "Pwd", kind: .local, target: "prod", listenPort: 5432, remoteHost: "db", remotePort: 5432, enabled: true, authMethod: .password),
+            secret: .set("swordfish")
+        )
+        #expect(store.hasSecret(for: entry.id))
+        #expect(await pollMain(timeout: .seconds(5)) { entry.status == .up })
+
+        model.toggle(entry) // stop the tunnel before deleting
+        _ = await pollMain(timeout: .seconds(3)) { entry.status == .off }
+        model.delete(entry)
+        #expect(!store.hasSecret(for: entry.id))
+    }
 }

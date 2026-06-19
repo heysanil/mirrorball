@@ -10,6 +10,11 @@ import Foundation
 actor TunnelSupervisor {
     private let forward: Forward
     private let sshExecutableURL: URL
+    /// Secret (password or key passphrase) handed to `ssh` via `SSH_ASKPASS`,
+    /// never via argv. `nil` for agent auth.
+    private let secret: String?
+    /// Path to the askpass helper script that echoes the secret on demand.
+    private let askpassURL: URL?
 
     private var process: Process?
     private var supervisionTask: Task<Void, Never>?
@@ -19,9 +24,11 @@ actor TunnelSupervisor {
     nonisolated let statusStream: AsyncStream<ForwardStatus>
     private let continuation: AsyncStream<ForwardStatus>.Continuation
 
-    init(forward: Forward, sshExecutableURL: URL) {
+    init(forward: Forward, sshExecutableURL: URL, secret: String? = nil, askpassURL: URL? = nil) {
         self.forward = forward
         self.sshExecutableURL = sshExecutableURL
+        self.secret = secret
+        self.askpassURL = askpassURL
         (statusStream, continuation) = AsyncStream<ForwardStatus>.makeStream(
             bufferingPolicy: .bufferingNewest(16)
         )
@@ -116,6 +123,17 @@ actor TunnelSupervisor {
         process.arguments = SSHArguments.build(for: forward)
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice
+
+        // Inject the secret out-of-band: ssh reads it from the SSH_ASKPASS helper
+        // rather than argv or stdin, so it never appears on the command line.
+        // `SSH_ASKPASS_REQUIRE=force` makes ssh use askpass even without a TTY/DISPLAY.
+        if let secret, let askpassURL {
+            var environment = ProcessInfo.processInfo.environment
+            environment["SSH_ASKPASS"] = askpassURL.path
+            environment["SSH_ASKPASS_REQUIRE"] = "force"
+            environment["MIRRORBALL_ASKPASS_SECRET"] = secret
+            process.environment = environment
+        }
 
         let pipe = Pipe()
         process.standardError = pipe
