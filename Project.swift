@@ -79,7 +79,9 @@ let project = Project(
             bundleId: "co.sanil.mirrorball.uitests",
             deploymentTargets: deploymentTargets,
             infoPlist: .default,
-            sources: ["Tests/UI/**"],
+            // Shared identifiers are compiled in directly — XCUITest is
+            // out-of-process and can't see the app target's internal symbols.
+            sources: ["Tests/UI/**", "Sources/Shared/**"],
             dependencies: [.target(name: "MirrorballSwift")]
         ),
     ],
