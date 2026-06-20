@@ -79,9 +79,9 @@ actor TunnelSupervisor {
                 terminate(attempt, stderr: stderr)
                 break loop
             case .exited:
+                let message = exitReason(of: attempt, stderr: stderr) ?? "ssh exited immediately"
                 terminate(attempt, stderr: stderr)
-                let message = stderr.last
-                emit(.error(message.isEmpty ? "ssh exited immediately" : message))
+                emit(.error(message))
                 if await backoffSleep(backoff) { break loop }
                 backoff = backoff.doubled(upTo: SupervisorConstants.backoffMax)
                 continue
@@ -93,11 +93,13 @@ actor TunnelSupervisor {
             emit(.up)
             let upSince = ContinuousClock.now
 
+            let dropReason: String?
             switch await wait(attempt, until: nil) {
             case .cancelled:
                 terminate(attempt, stderr: stderr)
                 break loop
             case .exited, .deadlinePassed:
+                dropReason = exitReason(of: attempt, stderr: stderr)
                 terminate(attempt, stderr: stderr)
             }
 
@@ -105,7 +107,14 @@ actor TunnelSupervisor {
             if ContinuousClock.now - upSince >= SupervisorConstants.stableAfter {
                 backoff = SupervisorConstants.backoffStart
             }
-            emit(.reconnecting)
+            // Surface the real failure reason so a connection that only *looked*
+            // healthy (passed the grace window, then errored) doesn't masquerade as
+            // a quiet reconnect. Stay quiet only for a clean close (exit 0, no stderr).
+            if let dropReason {
+                emit(.error(dropReason))
+            } else {
+                emit(.reconnecting)
+            }
             if await backoffSleep(backoff) { break }
             backoff = backoff.doubled(upTo: SupervisorConstants.backoffMax)
         }
@@ -173,6 +182,16 @@ actor TunnelSupervisor {
         }
         ChildProcessRegistry.shared.unregister(process)
         self.process = nil
+    }
+
+    /// Best-effort human reason a process ended: the last stderr line if any,
+    /// else a non-zero exit code, else `nil` for a clean exit (exit 0, no stderr).
+    private func exitReason(of process: Process, stderr: StderrBuffer) -> String? {
+        let line = stderr.last
+        if !line.isEmpty { return line }
+        guard !process.isRunning else { return nil }
+        let code = process.terminationStatus
+        return code != 0 ? "ssh exited (code \(code))" : nil
     }
 
     // MARK: - Waiting
