@@ -88,6 +88,34 @@ struct TunnelSupervisorTests {
         #expect(await poll(timeout: .seconds(3)) { collector.isOff })
     }
 
+    @Test("A stable connection that later drops with a reason reconnects quietly, not as a failure")
+    func stableDropDoesNotSurfaceAsError() async throws {
+        // The user's bug: a tunnel that was solidly up for a while, then gets
+        // killed by a NAT/idle timeout (ssh exits 255 with a stderr line), must
+        // be treated as a transient reconnect — NOT a "Forward failed" error that
+        // immediately recovers. Inject a tiny stability window so the fake ssh
+        // only has to stay up briefly past the grace window to count as "stable".
+        let ssh = try makeFakeSSH(
+            body: #"sleep 2.5; echo "client_loop: send disconnect: Broken pipe" >&2; exit 255"#
+        )
+        let sup = TunnelSupervisor(
+            forward: sampleForward(),
+            sshExecutableURL: ssh,
+            stableAfter: .milliseconds(200)
+        )
+        let collector = collectStatuses(from: sup.statusStream)
+
+        await sup.start()
+        #expect(await poll(timeout: .seconds(4)) { collector.sawUp })
+        // A previously-stable drop is a reconnect…
+        #expect(await poll(timeout: .seconds(5)) { collector.sawReconnecting })
+        // …and must never masquerade as an error (which would fire "Forward failed").
+        #expect(collector.lastError == nil)
+
+        await sup.stop()
+        #expect(await poll(timeout: .seconds(3)) { collector.isOff })
+    }
+
     @Test("A bad ssh path reports an error instead of crashing")
     func badExecutablePath() async throws {
         let missing = URL(fileURLWithPath: "/nonexistent/ssh-binary")

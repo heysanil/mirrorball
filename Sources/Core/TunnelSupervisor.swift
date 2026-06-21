@@ -15,6 +15,10 @@ actor TunnelSupervisor {
     private let secret: String?
     /// Path to the askpass helper script that echoes the secret on demand.
     private let askpassURL: URL?
+    /// How long a connection must stay up before a later drop is treated as a
+    /// transient reconnect rather than a flap. Injectable so tests don't have to
+    /// wait out the full production window.
+    private let stableAfter: Duration
 
     private var process: Process?
     private var supervisionTask: Task<Void, Never>?
@@ -24,11 +28,18 @@ actor TunnelSupervisor {
     nonisolated let statusStream: AsyncStream<ForwardStatus>
     private let continuation: AsyncStream<ForwardStatus>.Continuation
 
-    init(forward: Forward, sshExecutableURL: URL, secret: String? = nil, askpassURL: URL? = nil) {
+    init(
+        forward: Forward,
+        sshExecutableURL: URL,
+        secret: String? = nil,
+        askpassURL: URL? = nil,
+        stableAfter: Duration = SupervisorConstants.stableAfter
+    ) {
         self.forward = forward
         self.sshExecutableURL = sshExecutableURL
         self.secret = secret
         self.askpassURL = askpassURL
+        self.stableAfter = stableAfter
         (statusStream, continuation) = AsyncStream<ForwardStatus>.makeStream(
             bufferingPolicy: .bufferingNewest(16)
         )
@@ -103,14 +114,21 @@ actor TunnelSupervisor {
                 terminate(attempt, stderr: stderr)
             }
 
-            // Unexpected drop. A long-stable connection earns a fresh backoff budget.
-            if ContinuousClock.now - upSince >= SupervisorConstants.stableAfter {
+            // Unexpected drop. Distinguish a transient blip on an established
+            // tunnel from a connection that never really settled.
+            let wasStable = ContinuousClock.now - upSince >= stableAfter
+            // A long-stable connection earns a fresh backoff budget.
+            if wasStable {
                 backoff = SupervisorConstants.backoffStart
             }
-            // Surface the real failure reason so a connection that only *looked*
-            // healthy (passed the grace window, then errored) doesn't masquerade as
-            // a quiet reconnect. Stay quiet only for a clean close (exit 0, no stderr).
-            if let dropReason {
+            // Surface the exit reason as an error only for a connection that
+            // dropped *before* it stabilized — a flap that only *looked* healthy.
+            // A previously-stable tunnel that drops (idle/NAT timeout, server
+            // keepalive, a brief network blip) is just reconnecting: if the
+            // reconnect can't re-establish, the grace-window path surfaces the real
+            // reason on the next attempt. This keeps a tunnel that drops and
+            // recovers from spamming "failed" notifications on every cycle.
+            if let dropReason, !wasStable {
                 emit(.error(dropReason))
             } else {
                 emit(.reconnecting)
