@@ -14,7 +14,7 @@
 
 Mirrorball turns SSH tunnels into rows with a switch. Flip one on to bring a forward up; if the connection drops — laptop sleep, network blip, server hiccup — it quietly reconnects with backoff; flip it off and it's gone. It lives in your menu bar *and* a proper window, and under the hood it drives the system `ssh` binary, so it reuses your existing `~/.ssh/config`, keys, and agent. Nothing to configure twice.
 
-This is the native **Swift + SwiftUI** rebuild of the original Rust/egui app — same SSH behavior, rebuilt to feel at home on macOS, with first-class authentication (passwords & key passphrases stored in the Keychain). The original lives on at [`heysanil/mirrorball-rust`](https://github.com/heysanil/mirrorball-rust).
+Built natively in **Swift + SwiftUI** to feel at home on macOS, it goes beyond the basics with first-class authentication — passwords and key passphrases stored securely in your Keychain — and a polished editor for every SSH option you actually reach for.
 
 <!-- Add a screenshot at docs/screenshot.png and uncomment:
 <p align="center"><img src="docs/screenshot.png" alt="Mirrorball" width="460"></p>
