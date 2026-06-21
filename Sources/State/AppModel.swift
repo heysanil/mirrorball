@@ -165,14 +165,14 @@ final class AppModel {
         entry.supervisor = supervisor
 
         let name = entry.forward.name
+        let id = entry.id
         let notifier = self.notifier
         entry.statusTask = Task { [weak entry] in
             await supervisor.start()
             for await status in supervisor.statusStream {
                 guard let entry else { break }
-                let previous = entry.status
                 entry.status = status
-                await notifier.handleTransition(name: name, from: previous, to: status)
+                notifier.handleStatus(id: id, name: name, status: status)
             }
         }
     }
@@ -185,6 +185,9 @@ final class AppModel {
             Task { await supervisor.stop() }
         }
         entry.status = .off
+        // Drop any pending/announced outage state so a user-initiated stop is
+        // silent and a later re-enable starts fresh.
+        notifier.forget(id: entry.id)
     }
 
     private func persist() {
