@@ -1,85 +1,141 @@
-# Mirrorball
+<p align="center">
+  <h1 align="center">🪩 Mirrorball</h1>
+  <p align="center">A dead-simple, native SSH port-forward manager for macOS.</p>
+</p>
 
-A native **macOS** SSH port-forward manager, written in Swift + SwiftUI. 🪩
+<p align="center">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-blue">
+  <img alt="Built with Swift + SwiftUI" src="https://img.shields.io/badge/built%20with-Swift%20%2B%20SwiftUI-orange">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-80%2B-brightgreen">
+  <img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-green">
+</p>
 
-Mirrorball turns SSH tunnels into rows with a switch. Flip one on to bring a
-forward up; if the connection drops — laptop sleep, network blip, server hiccup —
-it quietly reconnects with backoff; flip it off and it's gone. It wraps the
-system `ssh` binary, so it inherits your `~/.ssh/config`, keys, and agent for
-free.
+---
 
-This is a Mac-native reimagining of the original Rust/egui
-[`port-authority`](https://github.com/heysanil/port-authority) app — same SSH
-behavior, rebuilt to feel at home on macOS.
+Mirrorball turns SSH tunnels into rows with a switch. Flip one on to bring a forward up; if the connection drops — laptop sleep, network blip, server hiccup — it quietly reconnects with backoff; flip it off and it's gone. It lives in your menu bar *and* a proper window, and under the hood it drives the system `ssh` binary, so it reuses your existing `~/.ssh/config`, keys, and agent. Nothing to configure twice.
+
+This is the native **Swift + SwiftUI** rebuild of the original Rust/egui app — same SSH behavior, rebuilt to feel at home on macOS, with first-class authentication (passwords & key passphrases stored in the Keychain). The original lives on at [`heysanil/mirrorball-rust`](https://github.com/heysanil/mirrorball-rust).
+
+<!-- Add a screenshot at docs/screenshot.png and uncomment:
+<p align="center"><img src="docs/screenshot.png" alt="Mirrorball" width="460"></p>
+-->
 
 ## Features
 
-- **Three forward types** — Local (`-L`), Remote (`-R`), and Dynamic SOCKS (`-D`).
-- **Auto-reconnect** with exponential backoff (1s → 30s), resetting after a
-  connection stays stable for 10s.
-- **Menu bar + window** — a status-bar item with quick toggles, plus a full
-  management window. The menu bar glyph reflects aggregate state at a glance.
-- **Live status** — connecting / connected / reconnecting / error, with the real
-  `ssh` stderr surfaced on failure.
-- **`~/.ssh/config` aware** — host aliases populate the editor's host picker.
-- **Launch at login** via `SMAppService`, and native **notifications** when a
-  tunnel drops, recovers, or fails.
-- **Native throughout** — system switch controls, grouped forms, SF Symbols,
-  light/dark, and a Settings window (⌘,).
+- **Menu bar + window** — a status-bar item with quick toggles (the glyph reflects aggregate state at a glance), plus a full management window. Closing the window keeps Mirrorball running in the menu bar.
+- **All three forward types** — local (`-L`), remote (`-R`), and dynamic SOCKS (`-D`).
+- **Auto-reconnect** — per-forward supervision with exponential backoff (1s → 30s); tunnels survive sleeps and blips. When a connection genuinely fails, the real `ssh` reason is surfaced instead of an endless silent retry.
+- **Rich SSH options** — identity file (`-i`), custom port (`-p`), jump host (`-J`), and free-form `-o Key=Value` options.
+- **Keychain-backed auth** — choose SSH agent, a private key (with optional passphrase), or a password. Secrets live at rest in the Keychain and are handed to `ssh` via `SSH_ASKPASS` — never on the command line.
+- **Uses your SSH setup** — spawns the system `ssh`, inheriting `~/.ssh/config`, keys, and your agent. Host aliases populate the editor's picker.
+- **Native throughout** — SwiftUI with system switch controls, grouped forms, SF Symbols, automatic light/dark, a Settings window (⌘,), launch-at-login (`SMAppService`), and native notifications on drops/reconnects/failures.
+- **Persists** — forwards live in a small JSON file; enabled ones auto-start on launch. `ssh` children are torn down cleanly on quit, so tunnels never leak.
 
-## Architecture
+## Install
+
+### Prerequisites
+
+- **macOS 26+** and **Xcode 26+**.
+- [Tuist](https://tuist.dev) (`mise install tuist`, `brew install tuist`, or the install script). The Xcode project is generated from `Project.swift`.
+- A working `ssh` client (preinstalled on macOS).
+
+### Build from source
+
+```bash
+git clone https://github.com/heysanil/mirrorball.git
+cd mirrorball
+tuist generate            # generates MirrorballSwift.xcodeproj / .xcworkspace
+open MirrorballSwift.xcworkspace
+# ⌘R to run, ⌘U to test
+```
+
+Prefer the command line?
+
+```bash
+xcodebuild -workspace MirrorballSwift.xcworkspace -scheme MirrorballSwift \
+  -destination 'platform=macOS' build
+```
+
+Mirrorball is **non-sandboxed** by design — it spawns `/usr/bin/ssh` and reads `~/.ssh/config`, neither of which is possible under the App Sandbox. For login-at-login to register reliably, run a signed copy from `/Applications`.
+
+## Usage
+
+1. Launch Mirrorball and click **+** (or press **⌘N**).
+2. Pick a type:
+
+   | Type | Flag | What it does |
+   |------|------|--------------|
+   | **Local** | `-L` | Bind a local port to a service reachable from the server, e.g. `localhost:5432` → `db:5432`. |
+   | **Remote** | `-R` | Expose one of *your* local ports on the server. |
+   | **Dynamic** | `-D` | A local SOCKS proxy that routes traffic through the server. |
+
+3. Choose an SSH host (an alias from `~/.ssh/config`, or type `user@host`) and set the ports.
+4. Pick an **authentication** method — SSH agent, a private key file (+ optional passphrase), or a password. Secrets are saved to your Keychain.
+5. Optionally open **Advanced** for a custom SSH port, jump host, or extra `-o` options.
+6. Flip the toggle. **Green** = connected, **amber** = connecting/reconnecting, **red** = the connection failed (the real `ssh` reason is shown).
+
+> [!NOTE]
+> **Authentication.** Mirrorball runs `ssh` non-interactively. For password and encrypted-key auth it stores the secret in the Keychain and feeds it to `ssh` through an `SSH_ASKPASS` helper (`SSH_ASKPASS_REQUIRE=force`), so the secret never appears in the process arguments.
+
+## Configuration
+
+Forwards are stored as JSON in your Application Support directory:
+
+```
+~/Library/Application Support/MirrorballSwift/forwards.json
+```
+
+```jsonc
+[
+  {
+    "name": "Prod database",
+    "kind": "local",          // local | remote | dynamic
+    "target": "prod",         // ssh alias or user@host
+    "listenPort": 5432,
+    "remoteHost": "localhost", // local/remote only
+    "remotePort": 5432,        // local/remote only
+    "enabled": true,           // auto-start on launch
+    "authMethod": "key",       // agent | key | password
+    "identityFile": "~/.ssh/id_ed25519",
+    "sshPort": 22,
+    "jumpHost": "user@bastion",
+    "extraOptions": ["ServerAliveInterval=30"]
+  }
+]
+```
+
+Secrets (passwords / key passphrases) are **not** written here — they live in the Keychain, keyed by the forward's id. Each running forward becomes an `ssh -N … -L/-R/-D …` invocation with `ServerAliveInterval` keepalives and `ExitOnForwardFailure=yes` so failures surface instead of hanging.
+
+## How it works
+
+Each enabled forward gets its own `actor TunnelSupervisor` that owns an `ssh` `Process`, watches it, and respawns it with exponential backoff if it dies while still enabled — publishing status changes over an `AsyncStream`. A single `@MainActor @Observable AppModel` consumes those streams and is shared by both the window and the menu bar through the SwiftUI environment. There is no embedded SSH stack — just your system `ssh`.
 
 ```
 Sources/
   App/      MirrorballApp (scenes), AppDelegate (lifecycle, child teardown)
-  Core/     Forward, ForwardStatus, SSHArguments, TunnelSupervisor (actor),
-            Persistence, SSHConfigParser, Notifier, LoginItem, AppConfiguration,
-            ChildProcessRegistry, DraftForward
+  Core/     Forward, ForwardStatus, SSHArguments (pure argv), TunnelSupervisor,
+            Persistence, SSHConfigParser, SecretStore (Keychain), AskpassHelper,
+            Notifier, LoginItem, AppConfiguration, ChildProcessRegistry, DraftForward
   State/    AppModel (@Observable, @MainActor), ForwardEntry
   Theme/    Palette, Metrics
   Views/    Main/ (window, row, badge, dot), Editor/, MenuBar/, Settings/
   Shared/   AccessibilityIdentifiers (compiled into the UI test target too)
 ```
 
-- One **`actor TunnelSupervisor` per forward** owns its `Process` and the
-  reconnect state machine, publishing status over an `AsyncStream`.
-- A single **`@MainActor @Observable AppModel`** consumes those streams and is
-  shared by both the window and the menu bar via the SwiftUI environment.
-- `ssh` children are tracked in a `ChildProcessRegistry` and torn down on quit,
-  so tunnels never leak as orphaned processes.
+## Development
 
-## Build & run
-
-Requires Xcode 26+ and [Tuist](https://tuist.dev).
-
-```sh
-tuist generate     # generates MirrorballSwift.xcodeproj/.xcworkspace
-open MirrorballSwift.xcworkspace
-# ⌘R to run, ⌘U to test
-```
-
-Or from the command line:
-
-```sh
-xcodebuild -workspace MirrorballSwift.xcworkspace -scheme MirrorballSwift \
-  -destination 'platform=macOS' build
-```
-
-The app is **non-sandboxed** by design (it spawns `/usr/bin/ssh` and reads
-`~/.ssh/config`). For login-at-login to be reliable, run a signed copy from
-`/Applications`.
-
-## Testing
-
-```sh
-# Headless: pure logic + supervisor + full AppModel end-to-end (fake-ssh harness)
+```bash
+tuist generate
 xcodebuild -workspace MirrorballSwift.xcworkspace -scheme MirrorballSwift \
   -destination 'platform=macOS' \
   -only-testing:MirrorballUnitTests -only-testing:MirrorballIntegrationTests test
-
-# UI e2e (needs a GUI session + automation permission; Xcode prompts on first run)
-xcodebuild ... -only-testing:MirrorballUITests test
 ```
+
+**80+ tests** across three targets:
+
+- **Unit** — pure logic: `ssh` argv construction, the model, JSON persistence, `~/.ssh/config` parsing, form validation, secret storage.
+- **Integration** — the `TunnelSupervisor` against *real* spawned processes, driven by a fake-`ssh` harness (connect / drop / reconnect / fail / askpass injection), plus full `AppModel` end-to-end flows.
+- **UI** — XCUITest flows (add / validate / toggle / persist). These need a GUI session with automation permission; Xcode prompts on first run.
 
 Tests use environment hooks so they never touch your real environment:
 
@@ -90,5 +146,8 @@ Tests use environment hooks so they never touch your real environment:
 | `MIRRORBALL_DISABLE_SIDE_EFFECTS` | Skip notifications + login-item registration |
 | `MIRRORBALL_SEED` | Seed forwards as a JSON array on launch |
 
-Config is stored as JSON at
-`~/Library/Application Support/MirrorballSwift/forwards.json`.
+Contributions welcome.
+
+## License
+
+[GPL-3.0](LICENSE) © Sanil Chawla
