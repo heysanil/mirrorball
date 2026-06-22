@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Mirrorball</title>
+    <link>https://mirrorball.sanil.co/appcast.xml</link>
+    <description>Updates for Mirrorball, a native macOS SSH port-forward manager.</description>
+    <language>en</language>
+    <!-- scripts/package-dmg.sh inserts each new release immediately below the marker, keeping the feed newest-first. -->
+    <!-- MIRRORBALL_APPCAST_ITEMS -->
+  </channel>
+</rss>

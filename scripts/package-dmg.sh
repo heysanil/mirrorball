@@ -29,7 +29,13 @@ cd "$REPO_ROOT"
 if [[ -z "$VERSION" ]]; then
   VERSION="$(grep -m1 'MARKETING_VERSION' Project.swift | sed -E 's/.*"([0-9.]+)".*/\1/')"
 fi
-echo "==> Packaging Mirrorball $VERSION (notarize=$NOTARIZE)"
+
+# Sparkle compares CFBundleVersion to decide whether a release is newer, so it
+# must increase monotonically across releases. Derive it from the commit count
+# (requires full git history — CI checks out with fetch-depth: 0). The
+# human-facing MARKETING_VERSION stays whatever $VERSION is.
+BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
+echo "==> Packaging Mirrorball $VERSION (build $BUILD, notarize=$NOTARIZE)"
 
 WORK="$(mktemp -d)"
 KEYCHAIN_PATH="$WORK/mirrorball-signing.keychain-db"
@@ -39,7 +45,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# --- 1. generate the Xcode project (it is gitignored) ----------------------
+# --- 1. resolve deps + generate the Xcode project (it is gitignored) -------
+echo "==> tuist install"        # resolve SPM deps (Sparkle) from Tuist/Package.swift
+tuist install
 echo "==> tuist generate"
 tuist generate --no-open
 
@@ -72,6 +80,7 @@ xcodebuild archive \
   -destination 'generic/platform=macOS' \
   -archivePath "$ARCHIVE" \
   MARKETING_VERSION="$VERSION" \
+  CURRENT_PROJECT_VERSION="$BUILD" \
   OTHER_CODE_SIGN_FLAGS="--timestamp"
 
 # --- 4. export with Developer ID --------------------------------------------
@@ -96,6 +105,18 @@ echo "exported app: $APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 # show the signing authority so a misconfigured identity is visible in the log
 codesign --display --verbose=2 "$APP" 2>&1 | grep -iE 'Authority|TeamIdentifier' || true
+
+# Sparkle ships nested helpers (Autoupdate, Updater.app, XPC services) that must
+# each be Developer ID-signed with the hardened runtime or notarization fails and
+# updates won't install. -exportArchive re-signs them automatically; verify it.
+SPARKLE_FW="$APP/Contents/Frameworks/Sparkle.framework"
+if [[ -d "$SPARKLE_FW" ]]; then
+  echo "==> verify Sparkle.framework signing"
+  codesign --verify --strict --verbose=2 "$SPARKLE_FW"
+  codesign --display --verbose=2 "$SPARKLE_FW" 2>&1 | grep -iE 'Authority|flags' || true
+else
+  echo "WARNING: Sparkle.framework not embedded in $APP" >&2
+fi
 
 # --- 5. build the DMG (app + Applications shortcut) ------------------------
 # Use hdiutil, not create-dmg: create-dmg drives Finder over AppleScript to
@@ -143,11 +164,63 @@ else
   echo "==> skipping notarization (--no-notarize)"
 fi
 
-# --- 7. emit outputs --------------------------------------------------------
+# --- 7. Sparkle: EdDSA-sign the DMG and append the appcast item ------------
+# Sparkle verifies every downloaded update against the EdDSA signature here (and
+# the SUPublicEDKey in the app's Info.plist). Skipped when the key is unset so a
+# local `--no-notarize` smoke test still works.
+if [[ -n "${SPARKLE_PRIVATE_ED_KEY:-}" ]]; then
+  command -v sign_update >/dev/null 2>&1 || {
+    echo "sign_update not found on PATH (install the Sparkle tools)" >&2; exit 1; }
+  echo "==> sign update (EdDSA)"
+  # Pipe the private key via stdin so it never lands on disk. sign_update prints:
+  #   sparkle:edSignature="…" length="…"
+  SIG_LINE="$(printf '%s' "$SPARKLE_PRIVATE_ED_KEY" | sign_update "$DMG" --ed-key-file -)"
+  ED_SIG="$(sed -E 's/.*edSignature="([^"]+)".*/\1/' <<<"$SIG_LINE")"
+  LENGTH="$(sed -E 's/.*length="([^"]+)".*/\1/' <<<"$SIG_LINE")"
+  [[ -n "$ED_SIG" && -n "$LENGTH" ]] || {
+    echo "could not parse sign_update output: $SIG_LINE" >&2; exit 1; }
+  echo "    edSignature=$ED_SIG length=$LENGTH"
+
+  APPCAST="$REPO_ROOT/docs/appcast.xml"
+  REPO_SLUG="${GITHUB_REPOSITORY:-heysanil/mirrorball}"
+  DMG_URL="https://github.com/$REPO_SLUG/releases/download/v$VERSION/$(basename "$DMG")"
+  PUBDATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
+  # Write the item to a file and splice it in with sed's `r` (read-file) command:
+  # it reads the file's contents after the marker line, handling multi-line XML
+  # that BSD/macOS awk's -v cannot. Inserting after the marker keeps the feed
+  # newest-first. The marker is a single-line comment so items land *after* it,
+  # not inside a comment.
+  ITEM_FILE="$WORK/appcast-item.xml"
+  cat > "$ITEM_FILE" <<EOF
+    <item>
+      <title>Version $VERSION</title>
+      <sparkle:version>$BUILD</sparkle:version>
+      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/$REPO_SLUG/releases/tag/v$VERSION</sparkle:releaseNotesLink>
+      <pubDate>$PUBDATE</pubDate>
+      <enclosure url="$DMG_URL" sparkle:edSignature="$ED_SIG" length="$LENGTH" type="application/octet-stream" />
+    </item>
+EOF
+  if [[ -f "$APPCAST" ]] && grep -q 'MIRRORBALL_APPCAST_ITEMS' "$APPCAST"; then
+    sed -e "/MIRRORBALL_APPCAST_ITEMS/r $ITEM_FILE" "$APPCAST" > "$APPCAST.tmp"
+    mv "$APPCAST.tmp" "$APPCAST"
+    echo "==> appended appcast item to $APPCAST"
+  else
+    echo "WARNING: $APPCAST missing or lacks the MIRRORBALL_APPCAST_ITEMS marker; appcast not updated" >&2
+  fi
+else
+  echo "==> skipping Sparkle signing (SPARKLE_PRIVATE_ED_KEY unset)"
+fi
+
+# --- 8. emit outputs --------------------------------------------------------
 echo "==> done: $DMG"
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     echo "dmg=$DMG"
     echo "version=$VERSION"
+    echo "build=$BUILD"
+    echo "ed_signature=${ED_SIG:-}"
+    echo "length=${LENGTH:-}"
   } >> "$GITHUB_OUTPUT"
 fi
