@@ -97,28 +97,31 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 # show the signing authority so a misconfigured identity is visible in the log
 codesign --display --verbose=2 "$APP" 2>&1 | grep -iE 'Authority|TeamIdentifier' || true
 
-# --- 5. build the DMG (app icon + Applications drop link) -------------------
-echo "==> create-dmg"
+# --- 5. build the DMG (app + Applications shortcut) ------------------------
+# Use hdiutil, not create-dmg: create-dmg drives Finder over AppleScript to
+# position icons, which needs a GUI login session and times out (AppleEvent
+# -1712) on a headless CI runner, producing no image. hdiutil needs no GUI.
+echo "==> build DMG (hdiutil)"
 STAGING="$WORK/dmg"
 mkdir -p "$STAGING"
 # Ship a branded Mirrorball.app regardless of the build product name. Renaming
 # the .app directory does not affect its code signature (the signature seals the
 # bundle contents and Info.plist, not the directory name).
 cp -R "$APP" "$STAGING/Mirrorball.app"
+# the "drag to Applications" shortcut is just a symlink — no Finder needed
+ln -s /Applications "$STAGING/Applications"
 DMG="$REPO_ROOT/Mirrorball-$VERSION.dmg"
 rm -f "$DMG"
-# create-dmg can exit non-zero on cosmetic Finder-styling hiccups while still
-# producing a valid image, so tolerate its exit code and assert the file exists.
-create-dmg \
-  --volname "Mirrorball $VERSION" \
-  --window-size 540 380 \
-  --icon-size 110 \
-  --icon "Mirrorball.app" 140 190 \
-  --app-drop-link 400 190 \
-  --codesign "Developer ID Application" \
-  --no-internet-enable \
-  "$DMG" "$STAGING" || true
-[[ -f "$DMG" ]] || { echo "create-dmg failed: no DMG produced" >&2; exit 1; }
+hdiutil create \
+  -volname "Mirrorball $VERSION" \
+  -srcfolder "$STAGING" \
+  -fs HFS+ \
+  -format UDZO \
+  -ov \
+  "$DMG"
+[[ -f "$DMG" ]] || { echo "hdiutil failed: no DMG produced" >&2; exit 1; }
+# sign the DMG itself with the Developer ID identity
+codesign --force --sign "Developer ID Application" --timestamp "$DMG"
 codesign --verify --verbose=2 "$DMG"
 
 # --- 6. notarize + staple ---------------------------------------------------

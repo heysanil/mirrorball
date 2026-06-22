@@ -31,8 +31,8 @@ jobs:
           sudo xcodebuild -runFirstLaunch || true
           xcodebuild -version
 
-      - name: Install Tuist & create-dmg
-        run: brew install tuist create-dmg
+      - name: Install Tuist
+        run: brew install tuist
 
       - name: Resolve version
         id: ver
