@@ -39,6 +39,11 @@ let project = Project(
             deploymentTargets: deploymentTargets,
             infoPlist: .extendingDefault(with: [
                 "CFBundleDisplayName": "Mirrorball",
+                // Drive the app's version from the build settings so MARKETING_VERSION
+                // (and the CI --version override) actually reaches the bundle; Tuist's
+                // default Info.plist otherwise hardcodes 1.0 / 1.
+                "CFBundleShortVersionString": "$(MARKETING_VERSION)",
+                "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
                 "LSUIElement": false,
                 "LSMinimumSystemVersion": "26.0",
                 "NSHumanReadableCopyright": "© 2026 Sanil",
