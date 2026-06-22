@@ -163,14 +163,20 @@ extension Forward {
     }
 
     /// Compact "what maps where" string for a row, e.g. `:5432 → db:5432`.
+    ///
+    /// The bind side is shown as a bare `:port` (it's always on this Mac for
+    /// `-L`/`-D`, on the server for `-R` where it's labelled `server:`), so it
+    /// reads distinctly from the destination `host:port` — which for `-L` is
+    /// resolved on the *far* end, hence often `localhost` (the server itself).
+    /// The SSH host the tunnel runs over is the separate `target` shown alongside.
     var mappingDescription: String {
         switch kind {
         case .local:
-            "localhost:\(listenPort) → \(effectiveRemoteHost):\(remotePort)"
+            ":\(listenPort) → \(effectiveRemoteHost):\(remotePort)"
         case .remote:
             "server:\(listenPort) → \(effectiveRemoteHost):\(remotePort)"
         case .dynamic:
-            "SOCKS proxy on localhost:\(listenPort)"
+            "SOCKS proxy on :\(listenPort)"
         }
     }
 }
