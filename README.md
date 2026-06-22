@@ -4,11 +4,17 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/heysanil/mirrorball/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/heysanil/mirrorball?label=release&color=8A2BE2"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-blue">
   <img alt="Built with Swift + SwiftUI" src="https://img.shields.io/badge/built%20with-Swift%20%2B%20SwiftUI-orange">
   <img alt="Tests" src="https://img.shields.io/badge/tests-80%2B-brightgreen">
   <img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-green">
 </p>
+
+<p align="center">
+  <a href="https://github.com/heysanil/mirrorball/releases/latest"><img alt="Download Mirrorball for macOS" src="https://img.shields.io/badge/Download%20for%20macOS-8A2BE2?style=for-the-badge&logo=apple&logoColor=white"></a>
+</p>
+<p align="center"><sub>Signed &amp; notarized <code>.dmg</code> — drag <strong>Mirrorball</strong> into Applications and you're done.</sub></p>
 
 ---
 
@@ -33,7 +39,13 @@ Built natively in **Swift + SwiftUI** to feel at home on macOS, it goes beyond t
 
 ## Install
 
+### Download (recommended)
+
+Grab the latest signed, **notarized** `.dmg` from the [**releases page**](https://github.com/heysanil/mirrorball/releases), open it, and drag **Mirrorball** into your Applications folder. Because it's notarized by Apple, it opens with no Gatekeeper warning — no right-click-to-open workaround needed.
+
 ### Prerequisites
+
+*Only needed to [build from source](#build-from-source) — the download above needs none of this.*
 
 - **macOS 26+** and **Xcode 26+**.
 - [Tuist](https://tuist.dev) (`mise install tuist`, `brew install tuist`, or the install script). The Xcode project is generated from `Project.swift`.
