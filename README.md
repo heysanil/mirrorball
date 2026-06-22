@@ -26,7 +26,7 @@ Built natively in **Swift + SwiftUI** to feel at home on macOS, it goes beyond t
   <img src="docs/app-window.png" alt="Mirrorball's management window: a forward shown as a row with a status dot, a LOCAL badge, its address mapping, and an on/off switch" width="520">
 </p>
 <p align="center">
-  <img src="docs/menu-bar.png" alt="Mirrorball's menu bar dropdown with a quick toggle and Open / Settings / Quit items" width="320">
+  <img src="docs/menu-bar.png" alt="Mirrorball's menu bar dropdown with a quick toggle and Open / Settings / Check for Updates / Quit items" width="320">
   <br>
   <sub>The same forwards in a proper window <em>and</em> the menu bar — flip a switch to bring one up.</sub>
 </p>
