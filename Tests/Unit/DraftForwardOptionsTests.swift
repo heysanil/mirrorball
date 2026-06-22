@@ -1,5 +1,5 @@
 import Testing
-@testable import MirrorballSwift
+@testable import Mirrorball
 
 @Suite("Draft validation — SSH options & secrets")
 struct DraftForwardOptionsTests {

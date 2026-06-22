@@ -1,5 +1,5 @@
 import Testing
-@testable import MirrorballSwift
+@testable import Mirrorball
 
 @Suite("SSH config parser")
 struct SSHConfigParserTests {

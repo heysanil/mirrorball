@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MirrorballSwift
+@testable import Mirrorball
 
 @Suite("Secret storage")
 struct SecretStoreTests {

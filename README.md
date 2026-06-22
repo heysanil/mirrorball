@@ -44,15 +44,15 @@ Built natively in **Swift + SwiftUI** to feel at home on macOS, it goes beyond t
 ```bash
 git clone https://github.com/heysanil/mirrorball.git
 cd mirrorball
-tuist generate            # generates MirrorballSwift.xcodeproj / .xcworkspace
-open MirrorballSwift.xcworkspace
+tuist generate            # generates Mirrorball.xcodeproj / .xcworkspace
+open Mirrorball.xcworkspace
 # ⌘R to run, ⌘U to test
 ```
 
 Prefer the command line?
 
 ```bash
-xcodebuild -workspace MirrorballSwift.xcworkspace -scheme MirrorballSwift \
+xcodebuild -workspace Mirrorball.xcworkspace -scheme Mirrorball \
   -destination 'platform=macOS' build
 ```
 
@@ -82,7 +82,7 @@ Mirrorball is **non-sandboxed** by design — it spawns `/usr/bin/ssh` and reads
 Forwards are stored as JSON in your Application Support directory:
 
 ```
-~/Library/Application Support/MirrorballSwift/forwards.json
+~/Library/Application Support/Mirrorball/forwards.json
 ```
 
 ```jsonc
@@ -126,7 +126,7 @@ Sources/
 
 ```bash
 tuist generate
-xcodebuild -workspace MirrorballSwift.xcworkspace -scheme MirrorballSwift \
+xcodebuild -workspace Mirrorball.xcworkspace -scheme Mirrorball \
   -destination 'platform=macOS' \
   -only-testing:MirrorballUnitTests -only-testing:MirrorballIntegrationTests test
 ```

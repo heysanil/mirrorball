@@ -30,13 +30,13 @@ import SwiftUI
 
 // MARK: - Asset Catalogs
 
-public enum MirrorballSwiftAsset: Sendable {
-  public static let accentColor = MirrorballSwiftColors(name: "AccentColor")
+public enum MirrorballAsset: Sendable {
+  public static let accentColor = MirrorballColors(name: "AccentColor")
 }
 
 // MARK: - Implementation Details
 
-public final class MirrorballSwiftColors: Sendable {
+public final class MirrorballColors: Sendable {
   public let name: String
 
   #if os(macOS)
@@ -65,9 +65,9 @@ public final class MirrorballSwiftColors: Sendable {
   }
 }
 
-public extension MirrorballSwiftColors.Color {
+public extension MirrorballColors.Color {
   @available(iOS 11.0, tvOS 11.0, watchOS 4.0, macOS 10.13, visionOS 1.0, *)
-  convenience init?(asset: MirrorballSwiftColors) {
+  convenience init?(asset: MirrorballColors) {
     let bundle = Bundle.module
     #if os(iOS) || os(tvOS) || os(visionOS)
     self.init(named: asset.name, in: bundle, compatibleWith: nil)
@@ -82,7 +82,7 @@ public extension MirrorballSwiftColors.Color {
 #if canImport(SwiftUI)
 @available(iOS 13.0, tvOS 13.0, watchOS 6.0, macOS 10.15, visionOS 1.0, *)
 public extension SwiftUI.Color {
-  init(asset: MirrorballSwiftColors) {
+  init(asset: MirrorballColors) {
     let bundle = Bundle.module
     self.init(asset.name, bundle: bundle)
   }

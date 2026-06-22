@@ -14,7 +14,7 @@
 - **The secret never appears in `ssh`/process argv** — keep secrets in env and temp files; this plan adds signing secrets, all passed via env, never as CLI args that get logged.
 - **Do NOT modify `Project.swift`** — Developer ID signing happens at export time. Keep `CODE_SIGN_IDENTITY = "-"`, hardened runtime, and the non-sandbox entitlement intact.
 - **No AI references in commit messages.** Conventional commits, imperative subject, explain *why* in the body.
-- Bundle id: `co.sanil.mirrorball`. App product name: `Mirrorball.app`. Scheme/workspace: `MirrorballSwift`.
+- Bundle id: `co.sanil.mirrorball`. App product name: `Mirrorball.app`. Scheme/workspace: `Mirrorball`.
 - Notary credential: App Store Connect **API key** (`.p8`).
 - Secret env var names (exact, used by script + workflow + README):
   `DEVELOPER_ID_APP_CERT_P12_BASE64`, `DEVELOPER_ID_APP_CERT_PASSWORD`, `KEYCHAIN_PASSWORD`,
@@ -126,8 +126,8 @@ security list-keychains -d user -s "$KEYCHAIN_PATH" \
 echo "==> xcodebuild archive"
 ARCHIVE="$WORK/Mirrorball.xcarchive"
 xcodebuild archive \
-  -workspace MirrorballSwift.xcworkspace \
-  -scheme MirrorballSwift \
+  -workspace Mirrorball.xcworkspace \
+  -scheme Mirrorball \
   -configuration Release \
   -destination 'generic/platform=macOS' \
   -archivePath "$ARCHIVE" \

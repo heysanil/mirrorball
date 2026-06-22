@@ -79,7 +79,7 @@ Steps, in order:
 2. Import `DEVELOPER_ID_APP_CERT_P12_BASE64` into a temporary keychain; set partition
    list for non-interactive `codesign`. (In CI, `apple-actions/import-codesign-certs`
    may do this instead; the script keeps a `security`-CLI path for local use.)
-3. `xcodebuild archive -workspace MirrorballSwift.xcworkspace -scheme MirrorballSwift
+3. `xcodebuild archive -workspace Mirrorball.xcworkspace -scheme Mirrorball
    -configuration Release -destination 'generic/platform=macOS' -archivePath <path>`.
 4. `xcodebuild -exportArchive` with `.github/ExportOptions.plist` (`method=developer-id`,
    `signingStyle=manual`, `teamID` injected from `APPLE_TEAM_ID` via PlistBuddy) →

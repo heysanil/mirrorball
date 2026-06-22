@@ -66,8 +66,8 @@ security list-keychains -d user -s "$KEYCHAIN_PATH" \
 echo "==> xcodebuild archive"
 ARCHIVE="$WORK/Mirrorball.xcarchive"
 xcodebuild archive \
-  -workspace MirrorballSwift.xcworkspace \
-  -scheme MirrorballSwift \
+  -workspace Mirrorball.xcworkspace \
+  -scheme Mirrorball \
   -configuration Release \
   -destination 'generic/platform=macOS' \
   -archivePath "$ARCHIVE" \
@@ -84,7 +84,7 @@ xcodebuild -exportArchive \
   -archivePath "$ARCHIVE" \
   -exportPath "$EXPORT_DIR" \
   -exportOptionsPlist "$WORK/ExportOptions.plist"
-# Tuist names the product after the target (MirrorballSwift.app), so discover
+# Tuist names the product after the target (Mirrorball.app), so discover
 # the exported bundle instead of assuming its filename.
 APP="$(/usr/bin/find "$EXPORT_DIR" -maxdepth 1 -name '*.app' -print -quit)"
 [[ -n "$APP" && -d "$APP" ]] || {

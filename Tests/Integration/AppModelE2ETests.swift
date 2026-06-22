@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MirrorballSwift
+@testable import Mirrorball
 
 /// End-to-end coverage through the real `AppModel` — the same state container,
 /// supervisor, and persistence the UI drives — using the fake-ssh harness. This

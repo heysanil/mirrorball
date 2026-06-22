@@ -11,14 +11,14 @@ let deploymentTargets: DeploymentTargets = .macOS("26.0")
 let baseSettings: SettingsDictionary = [
     "SWIFT_VERSION": "6.0",
     "SWIFT_STRICT_CONCURRENCY": "complete",
-    "MARKETING_VERSION": "1.0.0",
+    "MARKETING_VERSION": "0.1.0",
     "CURRENT_PROJECT_VERSION": "1",
     "CODE_SIGN_IDENTITY": "-",
     "CODE_SIGN_STYLE": "Automatic",
 ]
 
 let project = Project(
-    name: "MirrorballSwift",
+    name: "Mirrorball",
     options: .options(
         defaultKnownRegions: ["en"],
         developmentRegion: "en"
@@ -32,7 +32,7 @@ let project = Project(
     ),
     targets: [
         .target(
-            name: "MirrorballSwift",
+            name: "Mirrorball",
             destinations: .macOS,
             product: .app,
             bundleId: "co.sanil.mirrorball",
@@ -45,11 +45,11 @@ let project = Project(
             ]),
             sources: ["Sources/**"],
             resources: ["Resources/**"],
-            entitlements: .file(path: "MirrorballSwift.entitlements"),
+            entitlements: .file(path: "Mirrorball.entitlements"),
             dependencies: [],
             settings: .settings(base: [
                 "ENABLE_HARDENED_RUNTIME": "YES",
-                "CODE_SIGN_ENTITLEMENTS": "MirrorballSwift.entitlements",
+                "CODE_SIGN_ENTITLEMENTS": "Mirrorball.entitlements",
             ])
         ),
         .target(
@@ -60,7 +60,7 @@ let project = Project(
             deploymentTargets: deploymentTargets,
             infoPlist: .default,
             sources: ["Tests/Unit/**"],
-            dependencies: [.target(name: "MirrorballSwift")]
+            dependencies: [.target(name: "Mirrorball")]
         ),
         .target(
             name: "MirrorballIntegrationTests",
@@ -70,7 +70,7 @@ let project = Project(
             deploymentTargets: deploymentTargets,
             infoPlist: .default,
             sources: ["Tests/Integration/**"],
-            dependencies: [.target(name: "MirrorballSwift")]
+            dependencies: [.target(name: "Mirrorball")]
         ),
         .target(
             name: "MirrorballUITests",
@@ -82,14 +82,14 @@ let project = Project(
             // Shared identifiers are compiled in directly — XCUITest is
             // out-of-process and can't see the app target's internal symbols.
             sources: ["Tests/UI/**", "Sources/Shared/**"],
-            dependencies: [.target(name: "MirrorballSwift")]
+            dependencies: [.target(name: "Mirrorball")]
         ),
     ],
     schemes: [
         .scheme(
-            name: "MirrorballSwift",
+            name: "Mirrorball",
             shared: true,
-            buildAction: .buildAction(targets: ["MirrorballSwift"]),
+            buildAction: .buildAction(targets: ["Mirrorball"]),
             testAction: .targets(
                 [
                     .testableTarget(target: "MirrorballUnitTests"),
@@ -97,7 +97,7 @@ let project = Project(
                     .testableTarget(target: "MirrorballUITests"),
                 ]
             ),
-            runAction: .runAction(executable: "MirrorballSwift")
+            runAction: .runAction(executable: "Mirrorball")
         ),
     ]
 )

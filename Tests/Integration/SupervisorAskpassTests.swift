@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MirrorballSwift
+@testable import Mirrorball
 
 /// Proves the secret-injection path end-to-end: a fake `ssh` that actually execs
 /// `$SSH_ASKPASS` to fetch the secret, and only connects when it matches. No real

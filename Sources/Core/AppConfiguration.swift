@@ -17,7 +17,7 @@ struct AppConfiguration: Sendable {
     var seedJSON: String?
 
     static let defaultSSHPath = "/usr/bin/ssh"
-    static let configDirectoryName = "MirrorballSwift"
+    static let configDirectoryName = "Mirrorball"
 
     static func fromEnvironment(
         _ env: [String: String] = ProcessInfo.processInfo.environment
@@ -45,7 +45,7 @@ struct AppConfiguration: Sendable {
         configDirectory.appendingPathComponent("askpass.sh", isDirectory: false)
     }
 
-    /// `~/Library/Application Support/MirrorballSwift/`.
+    /// `~/Library/Application Support/Mirrorball/`.
     static var defaultConfigDirectory: URL {
         let appSupport = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)

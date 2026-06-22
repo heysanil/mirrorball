@@ -11,15 +11,15 @@ symlink to this file.
 
 ```bash
 tuist generate                                   # regenerate the Xcode project (REQUIRED after adding/removing files)
-open MirrorballSwift.xcworkspace                  # ⌘R to run, ⌘U to test
+open Mirrorball.xcworkspace                  # ⌘R to run, ⌘U to test
 
 # Headless test run (no GUI automation needed):
-xcodebuild -workspace MirrorballSwift.xcworkspace -scheme MirrorballSwift \
+xcodebuild -workspace Mirrorball.xcworkspace -scheme Mirrorball \
   -destination 'platform=macOS' \
   -only-testing:MirrorballUnitTests -only-testing:MirrorballIntegrationTests test
 
 # Build only:
-xcodebuild -workspace MirrorballSwift.xcworkspace -scheme MirrorballSwift \
+xcodebuild -workspace Mirrorball.xcworkspace -scheme Mirrorball \
   -destination 'platform=macOS' build
 ```
 
@@ -61,11 +61,11 @@ drives the system `ssh` binary (no embedded SSH stack), so it inherits the user'
 ## Project layout & generation
 
 `Project.swift` is the source of truth. `tuist generate` produces
-`MirrorballSwift.xcodeproj` / `.xcworkspace`, both **gitignored**. Four targets:
+`Mirrorball.xcodeproj` / `.xcworkspace`, both **gitignored**. Four targets:
 
 | Target | Product | Sources | Notes |
 |---|---|---|---|
-| `MirrorballSwift` | macOS app | `Sources/**` | the app; entitlements file disables sandbox |
+| `Mirrorball` | macOS app | `Sources/**` | the app; entitlements file disables sandbox |
 | `MirrorballUnitTests` | unit tests | `Tests/Unit/**` | Swift Testing |
 | `MirrorballIntegrationTests` | unit tests | `Tests/Integration/**` | Swift Testing; spawns real processes via fake-ssh |
 | `MirrorballUITests` | UI tests | `Tests/UI/**` + `Sources/Shared/**` | XCUITest; compiles the shared A11y file in directly |
@@ -185,7 +185,7 @@ Every spawned `ssh` registers here; `AppDelegate.applicationWillTerminate` calls
 - `performLaunchOnce()` is idempotent (guarded) and called from both scene
   `.task`s — requests notification auth, loads host aliases, auto-starts enabled
   forwards.
-- Persistence: pretty JSON at `~/Library/Application Support/MirrorballSwift/forwards.json`,
+- Persistence: pretty JSON at `~/Library/Application Support/Mirrorball/forwards.json`,
   atomic writes, graceful degradation (missing/corrupt → empty list).
 
 ## UI conventions

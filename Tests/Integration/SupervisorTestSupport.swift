@@ -1,5 +1,5 @@
 import Foundation
-@testable import MirrorballSwift
+@testable import Mirrorball
 
 /// Writes an executable fake-`ssh` script whose body you control, returning its
 /// URL. Lets integration tests drive the supervisor through up / drop / fail /
