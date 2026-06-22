@@ -84,15 +84,27 @@ xcodebuild -exportArchive \
   -archivePath "$ARCHIVE" \
   -exportPath "$EXPORT_DIR" \
   -exportOptionsPlist "$WORK/ExportOptions.plist"
-APP="$EXPORT_DIR/Mirrorball.app"
-[[ -d "$APP" ]] || { echo "export failed: $APP not found" >&2; exit 1; }
+# Tuist names the product after the target (MirrorballSwift.app), so discover
+# the exported bundle instead of assuming its filename.
+APP="$(/usr/bin/find "$EXPORT_DIR" -maxdepth 1 -name '*.app' -print -quit)"
+[[ -n "$APP" && -d "$APP" ]] || {
+  echo "export failed: no .app found in $EXPORT_DIR" >&2
+  ls -la "$EXPORT_DIR" >&2 || true
+  exit 1
+}
+echo "exported app: $APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
+# show the signing authority so a misconfigured identity is visible in the log
+codesign --display --verbose=2 "$APP" 2>&1 | grep -iE 'Authority|TeamIdentifier' || true
 
 # --- 5. build the DMG (app icon + Applications drop link) -------------------
 echo "==> create-dmg"
 STAGING="$WORK/dmg"
 mkdir -p "$STAGING"
-cp -R "$APP" "$STAGING/"
+# Ship a branded Mirrorball.app regardless of the build product name. Renaming
+# the .app directory does not affect its code signature (the signature seals the
+# bundle contents and Info.plist, not the directory name).
+cp -R "$APP" "$STAGING/Mirrorball.app"
 DMG="$REPO_ROOT/Mirrorball-$VERSION.dmg"
 rm -f "$DMG"
 # create-dmg can exit non-zero on cosmetic Finder-styling hiccups while still
