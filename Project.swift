@@ -11,7 +11,7 @@ let deploymentTargets: DeploymentTargets = .macOS("26.0")
 let baseSettings: SettingsDictionary = [
     "SWIFT_VERSION": "6.0",
     "SWIFT_STRICT_CONCURRENCY": "complete",
-    "MARKETING_VERSION": "0.1.1",
+    "MARKETING_VERSION": "0.1.2",
     "CURRENT_PROJECT_VERSION": "1",
     "CODE_SIGN_IDENTITY": "-",
     "CODE_SIGN_STYLE": "Automatic",
