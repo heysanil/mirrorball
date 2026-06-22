@@ -22,9 +22,14 @@ Mirrorball turns SSH tunnels into rows with a switch. Flip one on to bring a for
 
 Built natively in **Swift + SwiftUI** to feel at home on macOS, it goes beyond the basics with first-class authentication — passwords and key passphrases stored securely in your Keychain — and a polished editor for every SSH option you actually reach for.
 
-<!-- Add a screenshot at docs/screenshot.png and uncomment:
-<p align="center"><img src="docs/screenshot.png" alt="Mirrorball" width="460"></p>
--->
+<p align="center">
+  <img src="docs/app-window.png" alt="Mirrorball's management window: a forward shown as a row with a status dot, a LOCAL badge, its address mapping, and an on/off switch" width="520">
+</p>
+<p align="center">
+  <img src="docs/menu-bar.png" alt="Mirrorball's menu bar dropdown with a quick toggle and Open / Settings / Quit items" width="320">
+  <br>
+  <sub>The same forwards in a proper window <em>and</em> the menu bar — flip a switch to bring one up.</sub>
+</p>
 
 ## Features
 
