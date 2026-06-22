@@ -148,6 +148,54 @@ Tests use environment hooks so they never touch your real environment:
 
 Contributions welcome.
 
+## Building & releasing
+
+Releases are built by GitHub Actions on a **Namespace** macOS runner
+(`nscloud-macos-tahoe-arm64-6x14`, macOS 26 / Xcode 26). The job produces a
+Developer ID-signed, notarized, stapled drag-install DMG
+(`Mirrorball.app` + an Applications shortcut).
+
+**Triggers:** push a `v*` tag (e.g. `v1.2.3`) to build and attach the DMG to the
+matching GitHub Release, or run the **Release DMG** workflow manually from the
+Actions tab (optional `version` input). Every run also uploads the DMG as a
+workflow artifact.
+
+### One-time setup
+
+1. **Namespace:** connect `heysanil/mirrorball` to your Namespace tenant and
+   enable the macOS runner profile (install the Namespace GitHub App on the repo).
+2. **Apple:** you need a paid Apple Developer account, a **Developer ID
+   Application** certificate, and an **App Store Connect API key** (`.p8`).
+
+### Required repository secrets
+
+Settings → Secrets and variables → Actions:
+
+| Secret | What it is |
+|---|---|
+| `DEVELOPER_ID_APP_CERT_P12_BASE64` | `base64` of your exported Developer ID Application `.p12` |
+| `DEVELOPER_ID_APP_CERT_PASSWORD` | the `.p12` export password |
+| `KEYCHAIN_PASSWORD` | any string — password for the throwaway CI keychain |
+| `APPLE_TEAM_ID` | your 10-character Apple Team ID |
+| `NOTARY_API_KEY_ID` | App Store Connect API Key ID |
+| `NOTARY_API_ISSUER_ID` | App Store Connect Issuer ID |
+| `NOTARY_API_KEY_P8_BASE64` | `base64` of the `.p8` API key file |
+
+Generate the base64 values with `base64 -i Certificates.p12 | pbcopy` and
+`base64 -i AuthKey_XXXX.p8 | pbcopy`.
+
+### Building locally
+
+`scripts/package-dmg.sh` runs the same pipeline off-CI. Export the signing
+secrets as environment variables, then:
+
+```bash
+scripts/package-dmg.sh --version 1.2.3              # full: sign + notarize + staple
+scripts/package-dmg.sh --version 1.2.3 --no-notarize  # smoke test, skip Apple round-trip
+```
+
+The DMG is written to the repository root as `Mirrorball-<version>.dmg` (gitignored).
+
 ## License
 
 [GPL-3.0](LICENSE) © Sanil Chawla
