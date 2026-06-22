@@ -183,6 +183,12 @@ workflow artifact.
    enable the macOS runner profile (install the Namespace GitHub App on the repo).
 2. **Apple:** you need a paid Apple Developer account, a **Developer ID
    Application** certificate, and an **App Store Connect API key** (`.p8`).
+3. **Sparkle keys & GitHub Pages** (for auto-update — see [Auto-update](#auto-update-sparkle)):
+   run Sparkle's `generate_keys` once, paste the printed **public** key into
+   `SUPublicEDKey` in `Project.swift`, store the **private** key as the
+   `SPARKLE_PRIVATE_ED_KEY` secret, and serve `/docs` via GitHub Pages on `main`.
+   The appcast is published to the custom domain **`mirrorball.sanil.co`** (pinned
+   by `docs/CNAME`; needs a DNS `CNAME mirrorball.sanil.co → heysanil.github.io`).
 
 ### Required repository secrets
 
@@ -197,9 +203,40 @@ Settings → Secrets and variables → Actions:
 | `NOTARY_API_KEY_ID` | App Store Connect API Key ID |
 | `NOTARY_API_ISSUER_ID` | App Store Connect Issuer ID |
 | `NOTARY_API_KEY_P8_BASE64` | `base64` of the `.p8` API key file |
+| `SPARKLE_PRIVATE_ED_KEY` | the EdDSA **private** key from `generate_keys -x` (signs updates) |
 
 Generate the base64 values with `base64 -i Certificates.p12 | pbcopy` and
 `base64 -i AuthKey_XXXX.p8 | pbcopy`.
+
+### Auto-update (Sparkle)
+
+Mirrorball updates itself with [Sparkle 2](https://sparkle-project.org). The app
+reads an **appcast** at `https://mirrorball.sanil.co/appcast.xml`
+(`SUFeedURL`), checks daily in the background, and prompts before installing. The
+release pipeline EdDSA-signs the notarized DMG with `sign_update` and appends a
+signed `<item>` to `docs/appcast.xml`, which GitHub Pages serves.
+
+One-time key setup:
+
+```bash
+# from an extracted Sparkle release (bin/) or `brew install --cask sparkle`
+./bin/generate_keys                 # → stores the private key in your login Keychain,
+                                    #   prints the base64 PUBLIC key
+./bin/generate_keys -x private.key  # → export the PRIVATE key, paste into the
+                                    #   SPARKLE_PRIVATE_ED_KEY secret, then delete it
+```
+
+Paste the **public** key into `SUPublicEDKey` in `Project.swift` (it's public — safe
+to commit) and serve `/docs` via **GitHub Pages** on `main` (Settings → Pages). The
+appcast is hosted at the custom domain `mirrorball.sanil.co` (set by `docs/CNAME`).
+
+> [!IMPORTANT]
+> Sparkle verifies every update against the `SUPublicEDKey` baked into the
+> *installed* app, so the public key must ship in a release **before** auto-update
+> can work — the first Sparkle build can only update *to* a later build. End-to-end
+> updates also can't be tested from an unsigned/dev build (signature checks fail);
+> verify with two real signed releases. `CFBundleVersion` is set in CI from the
+> commit count so Sparkle always sees a newer build number.
 
 ### Building locally
 

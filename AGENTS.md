@@ -80,7 +80,12 @@ drives the system `ssh` binary (no embedded SSH stack), so it inherits the user'
 - **Tuist** generates the project from `Project.swift`.
 - **SwiftUI** app, `@Observable` (Observation framework — not `ObservableObject`).
 - Non-sandboxed, hardened runtime on. Bundle id `co.sanil.mirrorball`.
-- No third-party Swift package dependencies.
+- Exactly **one** third-party Swift package dependency:
+  [Sparkle](https://github.com/sparkle-project/Sparkle) for auto-update (apps
+  shipped outside the App Store have no built-in update mechanism). It's declared
+  in `Tuist/Package.swift` and consumed via `.external(name: "Sparkle")`; run
+  `tuist install` before `tuist generate`. Adding any *other* dependency still
+  needs a deliberate decision — keep the surface minimal. See "Auto-update".
 
 ## Project layout & generation
 
@@ -212,6 +217,37 @@ Every spawned `ssh` registers here; `AppDelegate.applicationWillTerminate` calls
 - Persistence: pretty JSON at `~/Library/Application Support/Mirrorball/forwards.json`,
   atomic writes, graceful degradation (missing/corrupt → empty list).
 
+## Auto-update (Sparkle)
+
+Mirrorball updates itself with **Sparkle 2** (the App Store provides no update path
+for direct downloads). The moving parts:
+
+- **`Updater`** (`Sources/Core/Updater.swift`) — a `@MainActor @Observable` wrapper
+  over `SPUStandardUpdaterController`. Owned by `AppDelegate` (created once, outlives
+  every scene) and injected into the environment of **all three scenes** (the
+  Settings scene needs it too, or its `@Environment(Updater.self)` lookup traps).
+  `init(enabled:)` is a hard no-op when disabled (`disableUpdater`): no controller,
+  no scheduler, no network. Sparkle's `canCheckForUpdates` is bridged from KVO into
+  the observable property via `NSKeyValueObservation` + `MainActor.assumeIsolated`
+  (Sparkle posts on main), avoiding an `ObservableObject`.
+- **UI**: a "Check for Updates…" item in the App menu (`CommandGroup(after: .appInfo)`),
+  the menu-bar footer, and an "Updates" section in `SettingsView` (auto-check toggle
+  bound to `automaticallyChecksForUpdates` + a check button). Sparkle draws the
+  actual update dialogs.
+- **Versioning**: Sparkle compares `CFBundleVersion`, so it must increase every
+  release. CI injects `CURRENT_PROJECT_VERSION=$(git rev-list --count HEAD)` (the
+  manifest's `"1"` is only a local-dev default; `checkout` uses `fetch-depth: 0`).
+  `MARKETING_VERSION` stays the human-facing string.
+- **Feed**: `SUFeedURL` + `SUPublicEDKey` live in `Project.swift`'s `infoPlist`. The
+  appcast is committed to `docs/appcast.xml` and served by GitHub Pages; enclosures
+  point at the notarized DMG on GitHub Releases. `scripts/package-dmg.sh` EdDSA-signs
+  the DMG with `sign_update` (key from `SPARKLE_PRIVATE_ED_KEY` via **stdin**, never
+  disk) and appends the `<item>`; the workflow commits it back to `main`.
+- **One-time setup** (see README): `generate_keys` → public key into `SUPublicEDKey`,
+  private key into the `SPARKLE_PRIVATE_ED_KEY` Actions secret; enable GitHub Pages on
+  `/docs`. ⚠️ The public key must ship in a release before auto-update can work, and
+  end-to-end updates can't be tested from an ad-hoc/dev build (signature checks fail).
+
 ## UI conventions
 
 - Native first: `List`, grouped `Form`, system `Toggle(.switch)`, SF Symbols,
@@ -231,7 +267,8 @@ Every spawned `ssh` registers here; `AppDelegate.applicationWillTerminate` calls
 |---|---|
 | `MIRRORBALL_SSH_PATH` | substitute a fake-ssh script for `/usr/bin/ssh` |
 | `MIRRORBALL_CONFIG_DIR` | redirect persistence (+ askpass script) to a temp dir |
-| `MIRRORBALL_DISABLE_SIDE_EFFECTS` | `1` → skip notifications + login-item registration |
+| `MIRRORBALL_DISABLE_SIDE_EFFECTS` | `1` → skip notifications + login-item registration (also implies the updater is off) |
+| `MIRRORBALL_DISABLE_UPDATER` | `1` → skip starting Sparkle (no scheduler/network/Keychain) |
 | `MIRRORBALL_SEED` | JSON array of forwards to seed on first launch |
 
 These make the whole app deterministically testable from XCUITest and integration
