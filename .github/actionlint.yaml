@@ -1,0 +1,6 @@
+# Register custom self-hosted runner labels so actionlint doesn't flag them as
+# unknown. These are Namespace (namespace.so) macOS runner labels, valid only on
+# the Namespace-hosted runners this repo's release workflow targets.
+self-hosted-runner:
+  labels:
+    - nscloud-macos-tahoe-arm64-6x14
