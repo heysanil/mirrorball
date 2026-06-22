@@ -7,7 +7,7 @@
   <a href="https://github.com/heysanil/mirrorball/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/heysanil/mirrorball?label=release&color=8A2BE2"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-blue">
   <img alt="Built with Swift + SwiftUI" src="https://img.shields.io/badge/built%20with-Swift%20%2B%20SwiftUI-orange">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-80%2B-brightgreen">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-110%2B-brightgreen">
   <img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-green">
 </p>
 
