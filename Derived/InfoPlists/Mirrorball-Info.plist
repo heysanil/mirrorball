@@ -32,5 +32,13 @@
 	<string>Main</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://mirrorball.sanil.co/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>YnydsvE1uIsebiRrcZnJoGI0NL1rS49Onh/pcOiFiDU=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

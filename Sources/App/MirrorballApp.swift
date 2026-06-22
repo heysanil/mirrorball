@@ -9,6 +9,7 @@ struct MirrorballApp: App {
         WindowGroup("Mirrorball", id: "manager") {
             ManagerWindow()
                 .environment(model)
+                .environment(delegate.updater)
                 .task { model.performLaunchOnce() }
         }
         .defaultSize(width: Metrics.windowWidth, height: 560)
@@ -20,11 +21,19 @@ struct MirrorballApp: App {
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
+            // Standard "Check for Updates…" item, directly under "About Mirrorball".
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    delegate.updater.checkForUpdates()
+                }
+                .disabled(!delegate.updater.canCheckForUpdates)
+            }
         }
 
         MenuBarExtra {
             MenuBarContent()
                 .environment(model)
+                .environment(delegate.updater)
                 .task { model.performLaunchOnce() }
         } label: {
             MenuBarLabel()
@@ -34,6 +43,7 @@ struct MirrorballApp: App {
 
         Settings {
             SettingsView()
+                .environment(delegate.updater)
         }
     }
 }

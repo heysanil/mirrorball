@@ -4,6 +4,7 @@ import SwiftUI
 /// with quick toggles, plus actions to open the full window or quit.
 struct MenuBarContent: View {
     @Environment(AppModel.self) private var model
+    @Environment(Updater.self) private var updater
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -67,6 +68,11 @@ struct MenuBarContent: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+
+            MenuBarActionButton(title: "Check for Updates…", shortcut: nil) {
+                updater.checkForUpdates()
+            }
+            .disabled(!updater.canCheckForUpdates)
 
             MenuBarActionButton(title: "Quit Mirrorball", shortcut: nil) {
                 NSApplication.shared.terminate(nil)

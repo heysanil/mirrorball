@@ -20,6 +20,7 @@ struct AppModelE2ETests {
             sshExecutableURL: ssh,
             configDirectory: base.appendingPathComponent("config", isDirectory: true),
             disableSideEffects: true,
+            disableUpdater: true,
             seedJSON: seed
         )
     }
@@ -122,6 +123,7 @@ struct AppModelE2ETests {
             sshExecutableURL: recording.url,
             configDirectory: base.appendingPathComponent("config", isDirectory: true),
             disableSideEffects: true,
+            disableUpdater: true,
             seedJSON: nil
         )
         let model = AppModel(configuration: config)

@@ -47,11 +47,23 @@ let project = Project(
                 "LSUIElement": false,
                 "LSMinimumSystemVersion": "26.0",
                 "NSHumanReadableCopyright": "© 2026 Sanil",
+                // Sparkle auto-update. The feed is the appcast published to GitHub
+                // Pages; enclosures point at the notarized DMG on GitHub Releases.
+                // SUPublicEDKey is the *public* half of the EdDSA key pair generated
+                // once with Sparkle's `generate_keys` (committing the public key is
+                // expected and safe). Sparkle verifies every download against it, so
+                // it MUST ship in a release before auto-update can work.
+                "SUFeedURL": "https://mirrorball.sanil.co/appcast.xml",
+                "SUPublicEDKey": "YnydsvE1uIsebiRrcZnJoGI0NL1rS49Onh/pcOiFiDU=",
+                "SUEnableAutomaticChecks": true,
+                "SUScheduledCheckInterval": 86400,
             ]),
             sources: ["Sources/**"],
             resources: ["Resources/**"],
             entitlements: .file(path: "Mirrorball.entitlements"),
-            dependencies: [],
+            dependencies: [
+                .external(name: "Sparkle"),
+            ],
             settings: .settings(base: [
                 "ENABLE_HARDENED_RUNTIME": "YES",
                 "CODE_SIGN_ENTITLEMENTS": "Mirrorball.entitlements",

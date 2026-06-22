@@ -3,8 +3,10 @@ import SwiftUI
 /// Native Settings window (⌘,). Hosts the launch-at-login toggle and an About
 /// section. Grouped form styling matches System Settings.
 struct SettingsView: View {
+    @Environment(Updater.self) private var updater
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var loginError: String?
+    @State private var autoUpdate = false
 
     var body: some View {
         Form {
@@ -26,6 +28,21 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section {
+                Toggle("Automatically check for updates", isOn: $autoUpdate)
+                    .onChange(of: autoUpdate) { _, newValue in
+                        updater.automaticallyChecksForUpdates = newValue
+                    }
+                Button("Check for Updates…") { updater.checkForUpdates() }
+                    .disabled(!updater.canCheckForUpdates)
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text("Mirrorball checks for new versions in the background and asks before installing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("About") {
                 LabeledContent("Mirrorball", value: versionString)
                 Text("A native SSH port-forward manager.")
@@ -34,8 +51,11 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 280)
-        .onAppear { launchAtLogin = LoginItem.isEnabled }
+        .frame(width: 440, height: 380)
+        .onAppear {
+            launchAtLogin = LoginItem.isEnabled
+            autoUpdate = updater.automaticallyChecksForUpdates
+        }
     }
 
     private func applyLaunchAtLogin(_ enabled: Bool) {
