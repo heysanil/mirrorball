@@ -109,6 +109,54 @@ struct AppModelE2ETests {
         #expect(reloaded.entries.isEmpty)
     }
 
+    @Test("A multi-mapping forward starts one ssh carrying every spec and comes up")
+    func multiMappingForwardComesUpThroughAppModel() async throws {
+        // Drive the full AppModel path (add → supervise → spawn) and capture the
+        // argv the supervisor actually handed ssh, proving one process multiplexes
+        // every mapping rather than one process per port.
+        let recording = try makeRecordingFakeSSH()
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mb-e2e-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        let config = AppConfiguration(
+            sshExecutableURL: recording.url,
+            configDirectory: base.appendingPathComponent("config", isDirectory: true),
+            disableSideEffects: true,
+            seedJSON: nil
+        )
+        let model = AppModel(configuration: config)
+
+        let entry = model.add(Forward(
+            name: "Devbox",
+            kind: .local,
+            target: "devbox",
+            mappings: [
+                PortMapping(label: "frontend", listenPort: 3000, remoteHost: "localhost", remotePort: 3000),
+                PortMapping(label: "backend", listenPort: 8080, remoteHost: "localhost", remotePort: 8080),
+                PortMapping(label: "db", listenPort: 5432, remoteHost: "localhost", remotePort: 5432),
+            ],
+            enabled: true
+        ))
+
+        #expect(await pollMain(timeout: .seconds(5)) { entry.status == .up })
+        #expect(await pollMain(timeout: .seconds(2)) { !recording.invocations.isEmpty })
+
+        // A single supervised ssh carries all three -L specs, in order, target last.
+        let invocations = recording.invocations
+        #expect(invocations.count == 1)
+        let argv = invocations.first ?? []
+        #expect(localForwardSpecs(in: argv) == [
+            "3000:localhost:3000",
+            "8080:localhost:8080",
+            "5432:localhost:5432",
+        ])
+        #expect(argv.last == "devbox")
+
+        // Tear the child down cleanly.
+        model.toggle(entry)
+        _ = await pollMain(timeout: .seconds(3)) { entry.status == .off }
+    }
+
     @Test("A password forward authenticates via askpass and clears its secret on delete")
     func passwordForwardAuthenticatesAndClearsSecret() async throws {
         let store = InMemorySecretStore()

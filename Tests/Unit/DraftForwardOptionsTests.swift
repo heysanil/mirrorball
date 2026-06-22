@@ -7,9 +7,7 @@ struct DraftForwardOptionsTests {
         var d = DraftForward()
         d.name = "x"
         d.target = "host"
-        d.listenPort = "5432"
-        d.remoteHost = "db"
-        d.remotePort = "5432"
+        d.mappings = [DraftPortMapping(listenPort: "5432", remoteHost: "db", remotePort: "5432")]
         return d
     }
 

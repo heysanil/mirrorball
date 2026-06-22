@@ -5,6 +5,16 @@ struct ValidationError: Error, Equatable {
     let message: String
 }
 
+/// Editable, string-backed form state for one port mapping inside the editor.
+/// Ports stay strings while typing and are only parsed on save.
+struct DraftPortMapping: Equatable, Identifiable {
+    var id = UUID()
+    var label = ""
+    var listenPort = ""
+    var remoteHost = "localhost"
+    var remotePort = ""
+}
+
 /// Editable, string-backed form state for the editor. Ports are strings while
 /// typing and only parsed/validated on save, which keeps the fields forgiving.
 /// `validate()` is pure so it can be unit-tested without any UI.
@@ -12,9 +22,8 @@ struct DraftForward: Equatable {
     var name = ""
     var kind: ForwardKind = .local
     var target = ""
-    var listenPort = ""
-    var remoteHost = "localhost"
-    var remotePort = ""
+    /// One or more port mappings carried over this connection. Starts with one.
+    var mappings: [DraftPortMapping] = [DraftPortMapping()]
     var enabled = true
 
     // Authentication + advanced options.
@@ -37,9 +46,14 @@ struct DraftForward: Equatable {
         name = forward.name
         kind = forward.kind
         target = forward.target
-        listenPort = String(forward.listenPort)
-        remoteHost = forward.remoteHost
-        remotePort = forward.kind.usesRemoteEndpoint ? String(forward.remotePort) : ""
+        mappings = forward.mappings.map { mapping in
+            DraftPortMapping(
+                label: mapping.label,
+                listenPort: String(mapping.listenPort),
+                remoteHost: mapping.remoteHost,
+                remotePort: forward.kind.usesRemoteEndpoint ? String(mapping.remotePort) : ""
+            )
+        }
         enabled = forward.enabled
         authMethod = forward.authMethod
         identityFile = forward.identityFile ?? ""
@@ -64,20 +78,50 @@ struct DraftForward: Equatable {
             return fail("Enter an SSH host — an alias from ~/.ssh/config or user@host.")
         }
 
-        guard let listen = port(from: listenPort) else {
-            return fail("\(listenPortLabel) must be a number from 1 to 65535.")
+        guard !mappings.isEmpty else {
+            return fail("Add at least one port to forward.")
         }
 
-        var resolvedRemoteHost = "localhost"
-        var resolvedRemotePort: UInt16 = 0
+        // Resolve every mapping, applying smart defaults and rejecting any port
+        // bound twice within this one connection.
+        var resolvedMappings: [PortMapping] = []
+        var seenListenPorts = Set<UInt16>()
 
-        if kind.usesRemoteEndpoint {
-            guard let remote = port(from: remotePort) else {
-                return fail("Destination port must be a number from 1 to 65535.")
+        for mapping in mappings {
+            guard let listen = port(from: mapping.listenPort) else {
+                return fail("\(listenPortLabel) must be a number from 1 to 65535.")
             }
-            resolvedRemotePort = remote
-            let host = remoteHost.trimmingCharacters(in: .whitespaces)
-            resolvedRemoteHost = host.isEmpty ? "localhost" : host
+            guard seenListenPorts.insert(listen).inserted else {
+                return fail("Port \(listen) is forwarded more than once.")
+            }
+
+            var resolvedRemoteHost = "localhost"
+            var resolvedRemotePort: UInt16 = 0
+
+            if kind.usesRemoteEndpoint {
+                // Smart default: a blank destination port mirrors the listen port.
+                let trimmedRemotePort = mapping.remotePort.trimmingCharacters(in: .whitespaces)
+                if trimmedRemotePort.isEmpty {
+                    resolvedRemotePort = listen
+                } else {
+                    guard let remote = port(from: trimmedRemotePort) else {
+                        return fail("Destination port must be a number from 1 to 65535.")
+                    }
+                    resolvedRemotePort = remote
+                }
+                // Smart default: a blank/whitespace host means the server itself.
+                let host = mapping.remoteHost.trimmingCharacters(in: .whitespaces)
+                resolvedRemoteHost = host.isEmpty ? "localhost" : host
+            }
+
+            resolvedMappings.append(
+                PortMapping(
+                    label: mapping.label.trimmingCharacters(in: .whitespaces),
+                    listenPort: listen,
+                    remoteHost: resolvedRemoteHost,
+                    remotePort: resolvedRemotePort
+                )
+            )
         }
 
         // Optional SSH server port.
@@ -118,9 +162,7 @@ struct DraftForward: Equatable {
                 name: trimmedName,
                 kind: kind,
                 target: trimmedTarget,
-                listenPort: listen,
-                remoteHost: resolvedRemoteHost,
-                remotePort: resolvedRemotePort,
+                mappings: resolvedMappings,
                 enabled: enabled,
                 authMethod: authMethod,
                 identityFile: authMethod == .key && !trimmedIdentity.isEmpty ? trimmedIdentity : nil,

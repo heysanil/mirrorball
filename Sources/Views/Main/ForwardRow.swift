@@ -22,15 +22,25 @@ struct ForwardRow: View {
                 }
 
                 HStack(spacing: 6) {
+                    // The SSH host the tunnel runs over. Lower layout priority than
+                    // the chips: when space is tight this truncates, the ports don't.
                     Text(entry.forward.target)
                         .font(.monoCaption())
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                    Text(entry.forward.mappingDescription)
-                        .font(.monoCaption())
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                        .truncationMode(.tail)
+
+                    // One pill per port mapping. Capped to keep the row a single,
+                    // fixed-height line; the rest collapse into a trailing "+N".
+                    HStack(spacing: 4) {
+                        ForEach(visibleMappings) { mapping in
+                            PortChip(mapping: mapping, kind: entry.forward.kind)
+                        }
+                        if overflowCount > 0 {
+                            MoreChip(count: overflowCount)
+                        }
+                    }
+                    .fixedSize()
                 }
 
                 StatusDetail(status: entry.status)
@@ -62,4 +72,36 @@ struct ForwardRow: View {
             set: { _ in model.toggle(entry) }
         )
     }
+
+    /// How many port chips render before the rest fold into a "+N" pill.
+    private static let maxVisibleChips = 4
+
+    private var visibleMappings: ArraySlice<PortMapping> {
+        entry.forward.mappings.prefix(Self.maxVisibleChips)
+    }
+
+    private var overflowCount: Int {
+        max(0, entry.forward.mappings.count - Self.maxVisibleChips)
+    }
+}
+
+/// Trailing "+N" pill standing in for the mappings beyond the visible cap, so the
+/// row stays one fixed-height line no matter how many ports a connection carries.
+private struct MoreChip: View {
+    let count: Int
+
+    var body: some View {
+        Text("+\(count)")
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: Metrics.badgeCorner))
+            .fixedSize()
+            .help(label)
+            .accessibilityLabel(label)
+    }
+
+    private var label: String { "\(count) more port\(count == 1 ? "" : "s")" }
 }

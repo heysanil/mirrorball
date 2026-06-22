@@ -116,6 +116,40 @@ struct TunnelSupervisorTests {
         #expect(await poll(timeout: .seconds(3)) { collector.isOff })
     }
 
+    @Test("A multi-mapping forward spawns one ssh carrying every -L spec in order")
+    func multiMappingSpawnsOneSSHWithAllSpecs() async throws {
+        // Three mappings over one connection (frontend + backend + db on a devbox).
+        let recording = try makeRecordingFakeSSH()
+        let forward = sampleForward(mappings: [
+            PortMapping(label: "frontend", listenPort: 3000, remoteHost: "localhost", remotePort: 3000),
+            PortMapping(label: "backend", listenPort: 8080, remoteHost: "localhost", remotePort: 8080),
+            PortMapping(label: "db", listenPort: 5432, remoteHost: "localhost", remotePort: 5432),
+        ])
+        let sup = TunnelSupervisor(forward: forward, sshExecutableURL: recording.url)
+        let collector = collectStatuses(from: sup.statusStream)
+
+        await sup.start()
+        // Survives the grace window → exactly one healthy ssh process.
+        #expect(await poll(timeout: .seconds(5)) { collector.sawUp })
+        #expect(await poll(timeout: .seconds(2)) { !recording.invocations.isEmpty })
+
+        // One ssh invocation multiplexes all three forwards (no extra spawns).
+        let invocations = recording.invocations
+        #expect(invocations.count == 1)
+
+        // It carries one -L spec per mapping, in list order, with the target last.
+        let argv = invocations.first ?? []
+        #expect(localForwardSpecs(in: argv) == [
+            "3000:localhost:3000",
+            "8080:localhost:8080",
+            "5432:localhost:5432",
+        ])
+        #expect(argv.last == "host")
+
+        await sup.stop()
+        #expect(await poll(timeout: .seconds(3)) { collector.isOff })
+    }
+
     @Test("A bad ssh path reports an error instead of crashing")
     func badExecutablePath() async throws {
         let missing = URL(fileURLWithPath: "/nonexistent/ssh-binary")

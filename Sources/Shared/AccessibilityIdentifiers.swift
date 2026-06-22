@@ -18,9 +18,16 @@ enum A11y {
         static let name = "mb.editor.name"
         static let kind = "mb.editor.kind"
         static let target = "mb.editor.target"
-        static let listenPort = "mb.editor.listenPort"
-        static let remoteHost = "mb.editor.remoteHost"
-        static let remotePort = "mb.editor.remotePort"
+
+        // Port mappings are a dynamic list, so their identifiers are indexed by
+        // row. One connection can carry many `-L`/`-R`/`-D` specs.
+        static let addPort = "mb.editor.addPort"
+        static func portLabel(_ i: Int) -> String { "mb.editor.port.\(i).label" }
+        static func listenPort(_ i: Int) -> String { "mb.editor.port.\(i).listen" }
+        static func remoteHost(_ i: Int) -> String { "mb.editor.port.\(i).host" }
+        static func remotePort(_ i: Int) -> String { "mb.editor.port.\(i).dest" }
+        static func removePort(_ i: Int) -> String { "mb.editor.port.\(i).remove" }
+
         static let save = "mb.editor.save"
         static let cancel = "mb.editor.cancel"
         static let error = "mb.editor.error"

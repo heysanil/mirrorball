@@ -22,7 +22,6 @@ enum SSHArguments {
     /// Build the full `ssh` argument list for a forward (everything after `ssh`).
     static func build(for forward: Forward) -> [String] {
         var args = commonOptions
-        let remoteHost = forward.effectiveRemoteHost
 
         // Non-default SSH server port (`-p`). Port 22 is the default, so omit it.
         if let port = forward.sshPort, port != 22 {
@@ -67,16 +66,20 @@ enum SSHArguments {
             args.append("NumberOfPasswordPrompts=1")
         }
 
-        switch forward.kind {
-        case .local:
-            args.append("-L")
-            args.append("\(forward.listenPort):\(remoteHost):\(forward.remotePort)")
-        case .remote:
-            args.append("-R")
-            args.append("\(forward.listenPort):\(remoteHost):\(forward.remotePort)")
-        case .dynamic:
-            args.append("-D")
-            args.append("\(forward.listenPort)")
+        // One forwarding spec per mapping, in list order, so a single ssh
+        // process multiplexes every port the connection carries.
+        for mapping in forward.mappings {
+            switch forward.kind {
+            case .local:
+                args.append("-L")
+                args.append("\(mapping.listenPort):\(mapping.effectiveRemoteHost):\(mapping.remotePort)")
+            case .remote:
+                args.append("-R")
+                args.append("\(mapping.listenPort):\(mapping.effectiveRemoteHost):\(mapping.remotePort)")
+            case .dynamic:
+                args.append("-D")
+                args.append("\(mapping.listenPort)")
+            }
         }
 
         args.append(forward.target)

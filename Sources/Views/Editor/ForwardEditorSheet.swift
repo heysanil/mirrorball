@@ -1,10 +1,13 @@
 import SwiftUI
 import AppKit
 
-/// Add/edit sheet. Native grouped `Form` with kind, connection, authentication,
-/// and advanced sections. Validation keeps the sheet open and shows the error
-/// inline — saving is the only thing that dismisses it. Stored secrets are never
-/// read back into the form; we only signal that one exists.
+/// Add/edit sheet. The single, unified editor for a connection: it's simple by
+/// default — a name, a host, and a list of port mappings — with all the power
+/// (type, SSH port, jump host, per-port destination host, extra options) tucked
+/// behind an "Advanced" disclosure. Native grouped `Form`; validation keeps the
+/// sheet open and shows the error inline — saving is the only thing that
+/// dismisses it. Stored secrets are never read back into the form; we only
+/// signal that one exists.
 struct ForwardEditorSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -13,6 +16,10 @@ struct ForwardEditorSheet: View {
     private let entryID: UUID?
     @State private var draft: DraftForward
     @State private var validationError: String?
+    /// Drives the Advanced disclosure. Also reveals each port row's optional
+    /// destination-host field, so non-localhost destinations stay reachable
+    /// without a second sheet.
+    @State private var showAdvanced = false
 
     init(target: EditorTarget) {
         self.target = target
@@ -20,49 +27,41 @@ struct ForwardEditorSheet: View {
         case .new:
             _draft = State(initialValue: DraftForward())
             entryID = nil
+            _showAdvanced = State(initialValue: false)
         case .edit(let entry):
             _draft = State(initialValue: DraftForward(entry.forward))
             entryID = entry.id
+            // Open Advanced when editing a forward that actually uses it, so its
+            // type / jump host / per-port destination host aren't hidden behind a
+            // "simple" view that silently omits configured values.
+            _showAdvanced = State(initialValue: Self.usesAdvanced(entry.forward))
         }
     }
 
     private var isEditing: Bool { entryID != nil }
 
+    /// Whether a forward exercises any surface that lives under the Advanced
+    /// disclosure (a non-local type, a custom SSH port / jump host / extra options,
+    /// or a destination host other than `localhost` on any mapping).
+    private static func usesAdvanced(_ forward: Forward) -> Bool {
+        forward.kind != .local
+            || forward.sshPort != nil
+            || (forward.jumpHost?.isEmpty == false)
+            || !forward.extraOptions.isEmpty
+            || forward.mappings.contains { $0.effectiveRemoteHost != "localhost" }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Form {
+                // Identity — the two things you always need: a name and a host.
                 Section {
                     TextField("Name", text: $draft.name, prompt: Text("Prod database"))
                         .accessibilityIdentifier(A11y.Editor.name)
-
-                    Picker("Type", selection: $draft.kind) {
-                        ForEach(ForwardKind.allCases) { kind in
-                            Text(kind.title).tag(kind)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier(A11y.Editor.kind)
-
-                    Text(draft.kind.explanation)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Connection") {
                     hostField
-                    TextField(draft.listenPortLabel, text: $draft.listenPort, prompt: Text("5432"))
-                        .accessibilityIdentifier(A11y.Editor.listenPort)
                 }
 
-                if draft.kind.usesRemoteEndpoint {
-                    Section("Destination (from the server)") {
-                        TextField("Host", text: $draft.remoteHost, prompt: Text("localhost"))
-                            .accessibilityIdentifier(A11y.Editor.remoteHost)
-                        TextField("Port", text: $draft.remotePort, prompt: Text("5432"))
-                            .accessibilityIdentifier(A11y.Editor.remotePort)
-                    }
-                }
-
+                portsSection
                 authenticationSection
                 advancedSection
             }
@@ -97,7 +96,7 @@ struct ForwardEditorSheet: View {
             }
             .padding(16)
         }
-        .frame(width: 400)
+        .frame(width: Metrics.windowWidth)
         .animation(.easeInOut(duration: 0.15), value: validationError)
         .task {
             model.refreshHostAliases()
@@ -106,6 +105,92 @@ struct ForwardEditorSheet: View {
     }
 
     // MARK: - Sections
+
+    /// The list of port mappings carried over this one connection. Each row is a
+    /// compact `[label] [listen] → [dest]` (just `[label] [listen]` for `.dynamic`);
+    /// "Add port" appends another. With Advanced open, each row also reveals a
+    /// destination-host field.
+    @ViewBuilder
+    private var portsSection: some View {
+        Section("Ports") {
+            ForEach($draft.mappings) { $mapping in
+                // Recover this mapping's position for the indexed a11y identifiers
+                // (keying off the stable id keeps it correct across add/remove).
+                let index = draft.mappings.firstIndex { $0.id == mapping.id } ?? 0
+                portRow(index: index, mapping: $mapping)
+            }
+
+            Button {
+                draft.mappings.append(DraftPortMapping())
+            } label: {
+                Label("Add port", systemImage: "plus.circle")
+            }
+            .buttonStyle(.borderless)
+            .accessibilityIdentifier(A11y.Editor.addPort)
+        }
+    }
+
+    /// One port-mapping row. The compact line adapts to the connection's kind;
+    /// when `showAdvanced` is on (and the kind has a remote endpoint) a second
+    /// row exposes the destination host.
+    @ViewBuilder
+    private func portRow(index: Int, mapping: Binding<DraftPortMapping>) -> some View {
+        let listenValue = mapping.wrappedValue.listenPort.trimmingCharacters(in: .whitespaces)
+
+        HStack(spacing: 8) {
+            // Optional human label, e.g. "frontend". Takes the slack in the row.
+            TextField("Label", text: mapping.label, prompt: Text("label"))
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier(A11y.Editor.portLabel(index))
+
+            // The bound port — local for -L/-D, server-side for -R.
+            TextField(draft.listenPortLabel, text: mapping.listenPort, prompt: Text("5432"))
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 76)
+                .accessibilityIdentifier(A11y.Editor.listenPort(index))
+
+            if draft.kind.usesRemoteEndpoint {
+                Image(systemName: "arrow.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                // Destination port; blank mirrors the listen port (smart default),
+                // so the placeholder echoes it once one's been typed.
+                TextField(
+                    "Destination port",
+                    text: mapping.remotePort,
+                    prompt: Text(listenValue.isEmpty ? "= local" : listenValue)
+                )
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 76)
+                .accessibilityIdentifier(A11y.Editor.remotePort(index))
+            }
+
+            // Never allow zero rows — hide (but keep the slot) on the last one.
+            Button {
+                removeMapping(at: index)
+            } label: {
+                Image(systemName: "xmark.circle")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+            .help("Remove this port")
+            .disabled(draft.mappings.count == 1)
+            .opacity(draft.mappings.count == 1 ? 0 : 1)
+            .accessibilityIdentifier(A11y.Editor.removePort(index))
+        }
+
+        // Advanced: a non-localhost destination host for this mapping.
+        if showAdvanced && draft.kind.usesRemoteEndpoint {
+            TextField("Destination host", text: mapping.remoteHost, prompt: Text("localhost"))
+                .font(.system(size: 12, design: .monospaced))
+                .accessibilityIdentifier(A11y.Editor.remoteHost(index))
+        }
+    }
 
     @ViewBuilder
     private var authenticationSection: some View {
@@ -141,7 +226,19 @@ struct ForwardEditorSheet: View {
     @ViewBuilder
     private var advancedSection: some View {
         Section {
-            DisclosureGroup("Advanced") {
+            DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+                Picker("Type", selection: $draft.kind) {
+                    ForEach(ForwardKind.allCases) { kind in
+                        Text(kind.title).tag(kind)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier(A11y.Editor.kind)
+
+                Text(draft.kind.explanation)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 TextField("SSH port", text: $draft.sshPort, prompt: Text("22"))
                     .accessibilityIdentifier(A11y.Editor.sshPort)
                 TextField("Jump host", text: $draft.jumpHost, prompt: Text("user@bastion"))
@@ -224,6 +321,12 @@ struct ForwardEditorSheet: View {
     }
 
     // MARK: - Actions
+
+    /// Drop one port mapping, refusing to leave the connection with none.
+    private func removeMapping(at index: Int) {
+        guard draft.mappings.count > 1, draft.mappings.indices.contains(index) else { return }
+        draft.mappings.remove(at: index)
+    }
 
     private func chooseIdentityFile() {
         let panel = NSOpenPanel()

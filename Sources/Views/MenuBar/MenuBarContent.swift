@@ -99,7 +99,7 @@ private struct MenuBarRow: View {
                 Text(entry.forward.name)
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
-                Text(entry.forward.mappingDescription)
+                Text(entry.forward.portsSummary)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

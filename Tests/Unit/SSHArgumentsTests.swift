@@ -66,4 +66,44 @@ struct SSHArgumentsTests {
         #expect(SSHArguments.build(for: base(target: "user@host.example")).last == "user@host.example")
         #expect(SSHArguments.build(for: base(kind: .dynamic, target: "bastion")).last == "bastion")
     }
+
+    @Test("Multi-mapping local forward emits one -L per mapping in order, target last")
+    func multiMappingLocal() {
+        let f = Forward(name: "devbox", kind: .local, target: "devbox", mappings: [
+            PortMapping(label: "frontend", listenPort: 3000, remoteHost: "localhost", remotePort: 3000),
+            PortMapping(label: "backend", listenPort: 8080, remoteHost: "localhost", remotePort: 8080),
+            PortMapping(label: "db", listenPort: 5432, remoteHost: "db.internal", remotePort: 5432),
+        ])
+        let args = SSHArguments.build(for: f)
+        #expect(args == common + [
+            "-L", "3000:localhost:3000",
+            "-L", "8080:localhost:8080",
+            "-L", "5432:db.internal:5432",
+            "devbox",
+        ])
+    }
+
+    @Test("Multi-mapping remote forward emits one -R per mapping in order")
+    func multiMappingRemote() {
+        let f = Forward(name: "r", kind: .remote, target: "edge", mappings: [
+            PortMapping(listenPort: 8080, remoteHost: "localhost", remotePort: 3000),
+            PortMapping(listenPort: 9090, remoteHost: "localhost", remotePort: 9000),
+        ])
+        let args = SSHArguments.build(for: f)
+        #expect(args == common + [
+            "-R", "8080:localhost:3000",
+            "-R", "9090:localhost:9000",
+            "edge",
+        ])
+    }
+
+    @Test("Multi-mapping dynamic forward emits one -D per mapping, ignoring remote fields")
+    func multiMappingDynamic() {
+        let f = Forward(name: "d", kind: .dynamic, target: "bastion", mappings: [
+            PortMapping(listenPort: 1080, remoteHost: "ignored", remotePort: 9999),
+            PortMapping(listenPort: 1081),
+        ])
+        let args = SSHArguments.build(for: f)
+        #expect(args == common + ["-D", "1080", "-D", "1081", "bastion"])
+    }
 }
