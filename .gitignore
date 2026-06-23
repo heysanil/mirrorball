@@ -21,3 +21,7 @@ build/
 
 # Release artifacts
 *.dmg
+
+# Agent / brainstorm scratch (never part of the app)
+.superpowers/
+.playwright-mcp/

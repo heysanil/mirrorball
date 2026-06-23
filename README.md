@@ -5,6 +5,7 @@
 
 <p align="center">
   <a href="https://github.com/heysanil/mirrorball/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/heysanil/mirrorball?label=release&color=8A2BE2"></a>
+  <a href="https://mirrorball.sanil.co"><img alt="Website" src="https://img.shields.io/badge/website-mirrorball.sanil.co-2B7FFF"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-macOS-blue">
   <img alt="Built with Swift + SwiftUI" src="https://img.shields.io/badge/built%20with-Swift%20%2B%20SwiftUI-orange">
   <img alt="Tests" src="https://img.shields.io/badge/tests-110%2B-brightgreen">
@@ -229,6 +230,9 @@ One-time key setup:
 Paste the **public** key into `SUPublicEDKey` in `Project.swift` (it's public — safe
 to commit) and serve `/docs` via **GitHub Pages** on `main` (Settings → Pages). The
 appcast is hosted at the custom domain `mirrorball.sanil.co` (set by `docs/CNAME`).
+The same `/docs` folder also serves the marketing site — `docs/index.html` (plus
+`docs/assets/`) is the landing page at **[mirrorball.sanil.co](https://mirrorball.sanil.co)**;
+the appcast lives beside it at `/appcast.xml`.
 
 > [!IMPORTANT]
 > Sparkle verifies every update against the `SUPublicEDKey` baked into the

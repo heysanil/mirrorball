@@ -243,6 +243,13 @@ for direct downloads). The moving parts:
   point at the notarized DMG on GitHub Releases. `scripts/package-dmg.sh` EdDSA-signs
   the DMG with `sign_update` (key from `SPARKLE_PRIVATE_ED_KEY` via **stdin**, never
   disk) and appends the `<item>`; the workflow commits it back to `main`.
+- **`docs/` also hosts the marketing site**: `docs/index.html` (a self-contained,
+  zero-build static page) plus `docs/assets/` (app icon + `og.png`) is the landing
+  page served at the Pages root, `mirrorball.sanil.co`. It reuses the repo
+  screenshots (`docs/{app-window,menu-bar}.png`) and the app icon, and reaches the
+  same releases the appcast does. The page and the appcast share the one Pages
+  deploy — keep `docs/CNAME`, `docs/.nojekyll`, and `docs/appcast.xml` intact when
+  editing the site. Type is **Elza** (Adobe Typekit) + the system mono (SF Mono).
 - **One-time setup** (see README): `generate_keys` → public key into `SUPublicEDKey`,
   private key into the `SPARKLE_PRIVATE_ED_KEY` Actions secret; enable GitHub Pages on
   `/docs`. ⚠️ The public key must ship in a release before auto-update can work, and

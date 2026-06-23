@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#070F2C">
+
+<title>Mirrorball — SSH tunnels, on a switch.</title>
+<meta name="description" content="A dead-simple, native SSH port-forward manager for macOS. Flip a switch to bring a forward up; if it drops, it quietly reconnects. Lives in your menu bar and a proper window.">
+<link rel="canonical" href="https://mirrorball.sanil.co/">
+
+<!-- Open Graph / Twitter -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Mirrorball">
+<meta property="og:title" content="Mirrorball — SSH tunnels, on a switch.">
+<meta property="og:description" content="A dead-simple, native SSH port-forward manager for macOS. Supervised tunnels that auto-reconnect, right from your menu bar.">
+<meta property="og:url" content="https://mirrorball.sanil.co/">
+<meta property="og:image" content="https://mirrorball.sanil.co/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mirrorball — SSH tunnels, on a switch.">
+<meta name="twitter:description" content="A dead-simple, native SSH port-forward manager for macOS.">
+<meta name="twitter:image" content="https://mirrorball.sanil.co/assets/og.png">
+
+<link rel="icon" type="image/png" href="assets/icon.png">
+<link rel="apple-touch-icon" href="assets/icon.png">
+
+<link rel="preconnect" href="https://use.typekit.net" crossorigin>
+<link rel="stylesheet" href="https://use.typekit.net/bpr0ixi.css">
+
+<style>
+  :root{
+    --blue-400:#4F9CFF; --blue-500:#2B7FFF; --blue-600:#1A6BF5; --blue-700:#1457D6;
+    --green:#34C759; --amber:#FF9F0A; --red:#FF3B30;
+    --ink:#0C1726; --ink-2:#46526B; --ink-3:#838EA3;
+    --line:rgba(12,23,38,.09);
+    --soft:#F5F8FD;
+    --mono:ui-monospace,"SF Mono","SFMono-Regular",Menlo,Consolas,monospace;
+    --sans:"elza",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-weight:400;
+    font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%}
+  code{font-family:var(--mono)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+  .eyebrow{font:600 12px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase}
+  h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.02em;line-height:1.05}
+  section[id]{scroll-margin-top:88px}
+  :focus-visible{outline:2.5px solid var(--blue-500);outline-offset:3px;border-radius:6px}
+
+  .skip{position:absolute;left:-9999px;top:0;background:#fff;color:var(--ink);padding:12px 18px;
+    border-radius:10px;z-index:60;font-weight:600}
+  .skip:focus{left:16px;top:16px}
+
+  .btn{font:600 15px/1 var(--sans);border-radius:12px;padding:14px 22px;display:inline-flex;
+    align-items:center;gap:10px;cursor:pointer;border:1px solid transparent;
+    transition:transform .15s,box-shadow .15s,background .15s,color .15s,border-color .15s}
+  .btn:hover{transform:translateY(-1px)}
+  .btn svg{width:16px;height:18px;flex:0 0 auto}
+
+  /* ============ NAV ============ */
+  .nav{position:fixed;top:0;left:0;right:0;z-index:40;
+    transition:background .25s,box-shadow .25s,backdrop-filter .25s}
+  .nav .wrap{display:flex;align-items:center;gap:18px;height:72px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:18px;color:#fff;letter-spacing:-.01em;transition:color .25s}
+  .brand img{width:30px;height:30px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+  .nav .links{margin-left:auto;display:flex;align-items:center;gap:28px}
+  .nav .links a{color:rgba(255,255,255,.82);font-size:15px;font-weight:500;transition:color .25s}
+  .nav .links a:hover{color:#fff}
+  .nav .nbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);color:#fff;
+    padding:9px 16px;border-radius:10px;font-weight:600;font-size:14px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .nav.scrolled{background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(180%) blur(16px);
+    backdrop-filter:saturate(180%) blur(16px);box-shadow:0 1px 0 var(--line)}
+  .nav.scrolled .brand{color:var(--ink)}
+  .nav.scrolled .links a{color:var(--ink-2)}
+  .nav.scrolled .links a:hover{color:var(--ink)}
+  .nav.scrolled .nbtn{background:linear-gradient(180deg,var(--blue-500),var(--blue-600));border-color:transparent;color:#fff;
+    box-shadow:0 6px 16px -8px rgba(43,127,255,.8)}
+
+  /* ============ HERO ============ */
+  .hero{position:relative;color:#fff;overflow:hidden;
+    background:
+      radial-gradient(120% 130% at 82% -10%, rgba(79,156,255,.55) 0%, rgba(20,87,214,0) 52%),
+      radial-gradient(90% 120% at 0% 110%, rgba(120,92,255,.34) 0%, rgba(10,24,56,0) 55%),
+      linear-gradient(162deg,#163E96 0%,#0C2058 52%,#070F2C 100%);}
+  .hero::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+    background-size:42px 42px;
+    -webkit-mask-image:radial-gradient(70% 60% at 60% 20%,#000,transparent 80%);
+    mask-image:radial-gradient(70% 60% at 60% 20%,#000,transparent 80%);opacity:.6}
+  .hero .wrap{position:relative;z-index:5;display:grid;grid-template-columns:1.08fr .92fr;
+    align-items:center;gap:36px;padding-top:124px;padding-bottom:96px}
+  .hero .eyebrow{color:#9cc3ff;margin-bottom:22px}
+  .hero h1{font-size:clamp(42px,6.4vw,78px);letter-spacing:-.035em}
+  .hero p.lead{margin:22px 0 0;font-size:19px;line-height:1.5;color:#c6d6f4;max-width:46ch;font-weight:400}
+  .hero em{font-style:normal;color:#fff;font-weight:600}
+  .hero .cta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:34px}
+  .btn-primary{background:#fff;color:var(--blue-700);box-shadow:0 10px 30px -10px rgba(0,0,0,.5)}
+  .btn-primary:hover{box-shadow:0 16px 40px -12px rgba(0,0,0,.6)}
+  .btn-ghost-light{background:transparent;border-color:rgba(255,255,255,.28);color:#fff}
+  .btn-ghost-light:hover{background:rgba(255,255,255,.08)}
+  .hero .meta{margin-top:20px;font:500 13px/1.6 var(--mono);color:rgba(255,255,255,.6);letter-spacing:.02em}
+
+  /* node glyph */
+  .glyph{width:100%;max-width:360px;justify-self:center;filter:drop-shadow(0 24px 60px rgba(8,20,55,.6))}
+  .ring{fill:none;stroke:#fff;stroke-width:9;filter:drop-shadow(0 0 12px rgba(130,185,255,.95))}
+  .edge{fill:none;stroke:rgba(180,210,255,.8);stroke-width:3;stroke-linecap:round;
+    stroke-dasharray:.1 13;animation:flow 1.5s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-26}}
+  .pkt{fill:#fff;filter:drop-shadow(0 0 7px #cfe2ff)}
+
+  /* ============ SHOWCASE ============ */
+  .showcase{position:relative;background:linear-gradient(180deg,#070F2C 0%,#070F2C 38%,#fff 38%,#fff 100%)}
+  .showcase .frame{max-width:760px;margin:0 auto}
+  .showcase .frame img{display:block;width:100%}
+  .showcase .cap{text-align:center;color:var(--ink-2);font-size:15px;padding:26px 0 0;font-weight:500}
+
+  /* ============ TRUST ============ */
+  .trust{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff}
+  .trust .wrap{display:flex;flex-wrap:wrap;gap:14px 40px;justify-content:center;align-items:center;padding:22px 28px}
+  .trust .item{font:500 13px/1 var(--mono);color:var(--ink-3);letter-spacing:.03em;
+    display:flex;align-items:center;gap:9px;text-transform:uppercase}
+  .trust .dotg{width:7px;height:7px;border-radius:50%;background:var(--green)}
+
+  /* ============ SECTION SHELL ============ */
+  .sec{padding:100px 0}
+  .sec-head{max-width:680px;margin-bottom:54px}
+  .sec-head .eyebrow{color:var(--blue-600);margin-bottom:16px}
+  .sec-head h2{font-size:clamp(28px,4vw,44px)}
+  .sec-head p{margin:16px 0 0;color:var(--ink-2);font-size:18px}
+
+  /* ============ FEATURES ============ */
+  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .card{border:1px solid var(--line);border-radius:16px;padding:26px;background:#fff;
+    transition:transform .18s,box-shadow .18s,border-color .18s}
+  .card:hover{transform:translateY(-3px);box-shadow:0 24px 50px -30px rgba(20,40,80,.4);border-color:rgba(43,127,255,.4)}
+  .card .ic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;margin-bottom:18px;
+    background:linear-gradient(160deg,rgba(79,156,255,.16),rgba(43,127,255,.08));color:var(--blue-600)}
+  .card .ic svg{width:22px;height:22px}
+  .card h3{font-size:18.5px}
+  .card p{margin:9px 0 0;color:var(--ink-2);font-size:15px;line-height:1.55}
+  .card .tag{margin-top:14px;font:500 12px/1 var(--mono);color:var(--blue-700);
+    background:rgba(43,127,255,.08);display:inline-block;padding:6px 9px;border-radius:6px}
+
+  /* ============ HOW IT WORKS ============ */
+  .how{background:var(--soft);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .tunnel{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;margin:8px auto 0;max-width:880px}
+  .station{text-align:center;padding:22px 16px;background:#fff;border:1px solid var(--line);border-radius:14px}
+  .station .lbl{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+  .station .port{font:600 16px/1.3 var(--mono);color:var(--ink)}
+  .station .sub{font-size:13px;color:var(--ink-2);margin-top:4px}
+  .seg{height:2px;position:relative;background:repeating-linear-gradient(90deg,var(--blue-500) 0 3px,transparent 3px 11px);
+    margin:0 6px;border-radius:2px}
+  .seg .pk{position:absolute;top:50%;width:7px;height:7px;border-radius:50%;background:var(--blue-500);
+    transform:translateY(-50%);box-shadow:0 0 8px var(--blue-400);animation:run 1.8s linear infinite}
+  @keyframes run{from{left:-4px}to{left:calc(100% - 3px)}}
+  .lockchip{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;margin:0 auto;
+    background:linear-gradient(160deg,var(--blue-400),var(--blue-600));color:#fff;
+    box-shadow:0 12px 26px -10px rgba(43,127,255,.7)}
+  .how-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:54px}
+  .step .n{font:600 13px/1 var(--mono);color:var(--blue-600)}
+  .step h3{font-size:18px;margin-top:12px}
+  .step p{margin:8px 0 0;color:var(--ink-2);font-size:15px}
+
+  /* ============ MENU BAR SPLIT ============ */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+  .panel{border-radius:18px;padding:30px;border:1px solid var(--line);
+    background:radial-gradient(120% 120% at 20% 0%, #eaf1fb 0%, #f3f6fc 60%, #eef2f8 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+  .panel img{display:block;width:100%;border-radius:12px;box-shadow:0 24px 50px -26px rgba(20,40,80,.5)}
+  .split h2{font-size:clamp(26px,3.4vw,38px)}
+  .split .eyebrow{color:var(--blue-600);margin-bottom:14px;display:block}
+  .split p{color:var(--ink-2);font-size:17px;margin:16px 0 0}
+  .split ul{list-style:none;padding:0;margin:22px 0 0;display:grid;gap:12px}
+  .split li{display:flex;gap:12px;align-items:flex-start;font-size:15.5px;color:var(--ink)}
+  .split li .ck{color:var(--green);flex:0 0 auto;margin-top:1px;font-weight:700}
+
+  /* ============ SECURITY BAND ============ */
+  .sec-band{position:relative;color:#fff;overflow:hidden;
+    background:radial-gradient(100% 140% at 85% 0%,rgba(79,156,255,.32),rgba(7,15,44,0) 55%),
+      linear-gradient(165deg,#0E2A6B,#070F2C)}
+  .sec-band .wrap{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;padding:100px 28px}
+  .sec-band .eyebrow{color:#9cc3ff;margin-bottom:16px}
+  .sec-band h2{font-size:clamp(28px,3.6vw,40px)}
+  .sec-band p{color:#c6d6f4;font-size:17.5px;margin:18px 0 0;max-width:46ch}
+  .sec-band code{color:#cfe0ff}
+  .codeblock{font:500 13.5px/1.9 var(--mono);background:rgba(4,10,30,.6);border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;padding:22px 24px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);overflow-x:auto}
+  .codeblock .x{color:#ff8d85}.codeblock .ok{color:#7ee2a0}.codeblock .c{color:#7f8db0}.codeblock .k{color:#9cc3ff}
+  .codeblock .row{white-space:pre}
+
+  /* ============ DOWNLOAD ============ */
+  .dl{text-align:center;padding:110px 0}
+  .dl .icon-lg{width:96px;height:96px;border-radius:22px;box-shadow:0 30px 60px -24px rgba(43,90,200,.6);margin-bottom:26px}
+  .dl h2{font-size:clamp(32px,4.6vw,52px)}
+  .dl p{color:var(--ink-2);font-size:18px;margin:16px auto 0;max-width:48ch}
+  .dl .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+  .btn-blue{background:linear-gradient(180deg,var(--blue-500),var(--blue-600));color:#fff;
+    box-shadow:0 14px 34px -12px rgba(43,127,255,.7);font-size:16px;padding:16px 26px}
+  .btn-outline{background:#fff;border-color:var(--line);color:var(--ink)}
+  .dl .fine{margin-top:22px;font:500 13px/1.7 var(--mono);color:var(--ink-3);letter-spacing:.02em}
+
+  /* ============ FOOTER ============ */
+  footer{border-top:1px solid var(--line);background:var(--soft)}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:24px;align-items:center;padding:40px 28px}
+  footer .brand{color:var(--ink)}
+  footer .fl{margin-left:auto;display:flex;gap:26px;flex-wrap:wrap;font-size:14px;color:var(--ink-2);font-weight:500}
+  footer .fl a:hover{color:var(--ink)}
+  footer .cr{width:100%;color:var(--ink-3);font-size:13px;font-family:var(--mono);padding-top:8px;border-top:1px solid var(--line);margin-top:8px}
+
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto}
+    .edge,.pkt,.seg .pk{animation:none!important}
+    .btn:hover,.card:hover{transform:none}
+  }
+  @media (max-width:900px){
+    .hero .wrap{grid-template-columns:1fr;padding-top:108px}
+    .glyph{max-width:240px;margin-top:8px}
+    .feat-grid{grid-template-columns:1fr}
+    .how-steps{grid-template-columns:1fr}
+    .split,.sec-band .wrap{grid-template-columns:1fr}
+    .tunnel{grid-template-columns:1fr;gap:14px}.seg{height:34px;width:2px;margin:0 auto;
+      background:repeating-linear-gradient(180deg,var(--blue-500) 0 3px,transparent 3px 11px)}
+    .seg .pk{animation:none;top:auto;left:50%;transform:translateX(-50%)}
+    .nav .links a:not(.nbtn){display:none}
+    .sec{padding:72px 0}.dl{padding:84px 0}
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- NAV -->
+<nav class="nav" aria-label="Primary"><div class="wrap">
+  <a class="brand" href="#top"><img src="assets/icon.png" alt="" width="30" height="30">Mirrorball</a>
+  <div class="links">
+    <a href="#features">Features</a>
+    <a href="#security">Security</a>
+    <a href="https://github.com/heysanil/mirrorball">GitHub</a>
+    <a class="nbtn" href="#download">Download</a>
+  </div>
+</div></nav>
+
+<main id="main">
+<a id="top"></a>
+
+<!-- HERO -->
+<header class="hero"><div class="wrap">
+  <div>
+    <p class="eyebrow">SSH port forwards · for macOS</p>
+    <h1>Tunnels,<br>on a switch.</h1>
+    <p class="lead">A dead-simple, native SSH port-forward manager. Flip one on to bring a forward up; if it drops — sleep, network blip, server hiccup — it quietly reconnects. Lives in your menu bar <em>and</em> a proper window.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/heysanil/mirrorball/releases/latest">
+        <svg viewBox="0 0 14 17" fill="currentColor" aria-hidden="true"><path d="M13.5 13.2c-.25.57-.54 1.1-.88 1.59-.46.66-.84 1.12-1.13 1.38-.45.42-.94.63-1.46.65-.37 0-.83-.11-1.35-.32-.53-.21-1.01-.32-1.46-.32-.47 0-.97.11-1.5.32-.53.21-.96.32-1.29.33-.5.02-1-.2-1.49-.66-.31-.28-.71-.76-1.19-1.43-.51-.72-.94-1.55-1.27-2.5-.34-1.02-.51-2-.51-2.95 0-1.08.23-2.01.7-2.78.36-.61.84-1.09 1.45-1.45.6-.35 1.26-.53 1.96-.55.39 0 .91.12 1.55.36.64.24 1.05.36 1.23.36.13 0 .58-.14 1.34-.42.72-.26 1.33-.37 1.83-.33 1.37.11 2.39.65 3.07 1.62-1.22.74-1.83 1.78-1.81 3.11.01 1.03.39 1.89 1.12 2.57.33.32.71.57 1.12.74-.09.26-.19.51-.3.76zM10.37.36c0 .8-.29 1.55-.87 2.23-.7.81-1.55 1.28-2.47 1.2-.01-.1-.02-.2-.02-.3 0-.77.34-1.59.93-2.26.3-.34.67-.62 1.13-.84.45-.22.88-.34 1.28-.36.01.11.02.21.02.33z"/></svg>
+        Download for macOS</a>
+      <a class="btn btn-ghost-light" href="https://github.com/heysanil/mirrorball">View on GitHub</a>
+    </div>
+    <p class="meta">Free &amp; open source · macOS 26+ · Apple Silicon · v0.1.2</p>
+  </div>
+  <svg class="glyph" viewBox="0 0 220 195" role="img" aria-label="Three hosts connected by SSH tunnels">
+    <path class="edge" d="M58 60 L162 60"/>
+    <path class="edge" d="M58 60 L110 140"/>
+    <path class="edge" d="M162 60 L110 140"/>
+    <circle class="ring" cx="58" cy="60" r="17"/>
+    <circle class="ring" cx="162" cy="60" r="17"/>
+    <circle class="ring" cx="110" cy="140" r="17"/>
+    <circle class="pkt" r="3.6"><animateMotion dur="1.7s" repeatCount="indefinite" path="M58 60 L162 60"/></circle>
+    <circle class="pkt" r="3.6"><animateMotion dur="2.0s" repeatCount="indefinite" path="M162 60 L110 140"/></circle>
+    <circle class="pkt" r="3.6"><animateMotion dur="2.2s" repeatCount="indefinite" path="M110 140 L58 60"/></circle>
+  </svg>
+</div></header>
+
+<!-- SHOWCASE -->
+<section class="showcase"><div class="wrap">
+  <div class="frame"><img src="app-window.png" alt="Mirrorball's management window: a forward shown as a row with a status dot, a LOCAL badge, its address mapping, and an on/off switch" width="1248" height="1168"></div>
+  <p class="cap">One window. Every forward is a row with a status dot, an address mapping, and a switch.</p>
+</div></section>
+
+<!-- TRUST -->
+<div class="trust"><div class="wrap">
+  <span class="item"><span class="dotg"></span> Open source · GPL-3.0</span>
+  <span class="item">Auto-updates</span>
+  <span class="item">No telemetry</span>
+  <span class="item">Drives your system ssh</span>
+</div></div>
+
+<!-- FEATURES -->
+<section class="sec" id="features"><div class="wrap">
+  <div class="sec-head">
+    <p class="eyebrow">What it does</p>
+    <h2>Everything you reach for, nothing you don’t.</h2>
+    <p>It drives the system <code>ssh</code> binary, so it reuses your existing config, keys and agent. Nothing to set up twice.</p>
+  </div>
+  <div class="feat-grid">
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8"/></svg></div>
+      <h3>Menu bar &amp; window</h3>
+      <p>A status-bar item with quick toggles, plus a full management window. Close the window — it stays running up top.</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg></div>
+      <h3>Auto-reconnect</h3>
+      <p>Per-forward supervision with exponential backoff. Tunnels survive sleeps and blips; real failures surface the actual reason.</p>
+      <span class="tag">1s → 30s backoff</span>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></div>
+      <h3>Local, remote &amp; dynamic</h3>
+      <p>Every forward type you actually use — pull a remote port home, expose a local one, or run a SOCKS proxy.</p>
+      <span class="tag">-L · -R · -D</span>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+      <h3>Keychain-backed auth</h3>
+      <p>SSH agent, a private key with passphrase, or a password — secrets live at rest in your Keychain, never on the command line.</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
+      <h3>Uses your SSH setup</h3>
+      <p>Inherits <code>~/.ssh/config</code>, keys and agent. Host aliases populate the editor’s picker automatically.</p>
+    </article>
+    <article class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a15 15 0 0 0 0 18M12 3a15 15 0 0 1 0 18M3 12h18"/></svg></div>
+      <h3>Native throughout</h3>
+      <p>SwiftUI switches, grouped forms, SF Symbols, automatic light/dark, launch-at-login, and notifications on drops &amp; reconnects.</p>
+    </article>
+  </div>
+</div></section>
+
+<!-- HOW IT WORKS -->
+<section class="sec how"><div class="wrap">
+  <div class="sec-head" style="margin-bottom:40px">
+    <p class="eyebrow">How a forward works</p>
+    <h2>A remote port, mirrored to your Mac.</h2>
+  </div>
+  <div class="tunnel">
+    <div class="station"><div class="lbl">Your Mac</div><div class="port">localhost:3000</div><div class="sub">your browser hits this</div></div>
+    <div class="seg"><span class="pk"></span></div>
+    <div class="lockchip"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+    <div class="seg"><span class="pk" style="animation-delay:.5s"></span></div>
+    <div class="station"><div class="lbl">Studio Server</div><div class="port">elysia:3000</div><div class="sub">runs over there</div></div>
+  </div>
+  <div class="how-steps">
+    <div class="step"><div class="n">01</div><h3>Add a forward</h3><p>Pick a host alias, choose local / remote / dynamic, set the ports. The editor knows every option you reach for.</p></div>
+    <div class="step"><div class="n">02</div><h3>Flip the switch</h3><p>Mirrorball spawns a supervised <code>ssh -N</code> and watches it. Green means it’s up.</p></div>
+    <div class="step"><div class="n">03</div><h3>Forget about it</h3><p>It reconnects through sleeps and blips, and tears every child down cleanly on quit. No leaked tunnels.</p></div>
+  </div>
+</div></section>
+
+<!-- MENU BAR SPLIT -->
+<section class="sec"><div class="wrap"><div class="split">
+  <div class="panel"><img src="menu-bar.png" alt="Mirrorball's menu bar dropdown with a quick toggle and Open, Settings, Check for Updates, and Quit items" width="664" height="488"></div>
+  <div>
+    <span class="eyebrow">Always one click away</span>
+    <h2>Right from the menu bar.</h2>
+    <p>The status-bar glyph reflects the aggregate state at a glance. Toggle any forward without leaving what you’re doing.</p>
+    <ul>
+      <li><span class="ck">✓</span> Quick toggles for every forward</li>
+      <li><span class="ck">✓</span> Open the window, Settings, or check for updates</li>
+      <li><span class="ck">✓</span> Stays running here when the window is closed</li>
+    </ul>
+  </div>
+</div></div></section>
+
+<!-- SECURITY -->
+<section class="sec-band" id="security"><div class="wrap">
+  <div>
+    <p class="eyebrow">Built carefully</p>
+    <h2>Your secret never touches the command line.</h2>
+    <p>Anyone running <code>ps</code> can read a process’s arguments. So Mirrorball never puts a password or passphrase there. Secrets stay in the Keychain and reach <code>ssh</code> through <code>SSH_ASKPASS</code> on the child’s environment alone.</p>
+  </div>
+  <div class="codeblock" aria-label="How the secret is passed">
+    <div class="row"><span class="c"># never — visible in `ps`</span></div>
+    <div class="row"><span class="x">ssh -L 3000:… host -p 'hunter2'</span></div>
+    <div class="row"> </div>
+    <div class="row"><span class="c"># Mirrorball — via the environment</span></div>
+    <div class="row"><span class="k">SSH_ASKPASS</span>=… <span class="ok">ssh -N -L 3000:… host</span></div>
+    <div class="row"><span class="ok">  ✓ secret stays in the Keychain</span></div>
+  </div>
+</div></section>
+
+<!-- DOWNLOAD -->
+<section class="dl" id="download"><div class="wrap">
+  <img class="icon-lg" src="assets/icon.png" alt="" width="96" height="96">
+  <h2>Get Mirrorball.</h2>
+  <p>Download the disk image and drag Mirrorball into Applications. It keeps itself up to date from there.</p>
+  <div class="cta">
+    <a class="btn btn-blue" href="https://github.com/heysanil/mirrorball/releases/latest">
+      <svg viewBox="0 0 14 17" fill="currentColor" aria-hidden="true"><path d="M13.5 13.2c-.25.57-.54 1.1-.88 1.59-.46.66-.84 1.12-1.13 1.38-.45.42-.94.63-1.46.65-.37 0-.83-.11-1.35-.32-.53-.21-1.01-.32-1.46-.32-.47 0-.97.11-1.5.32-.53.21-.96.32-1.29.33-.5.02-1-.2-1.49-.66-.31-.28-.71-.76-1.19-1.43-.51-.72-.94-1.55-1.27-2.5-.34-1.02-.51-2-.51-2.95 0-1.08.23-2.01.7-2.78.36-.61.84-1.09 1.45-1.45.6-.35 1.26-.53 1.96-.55.39 0 .91.12 1.55.36.64.24 1.05.36 1.23.36.13 0 .58-.14 1.34-.42.72-.26 1.33-.37 1.83-.33 1.37.11 2.39.65 3.07 1.62-1.22.74-1.83 1.78-1.81 3.11.01 1.03.39 1.89 1.12 2.57.33.32.71.57 1.12.74-.09.26-.19.51-.3.76zM10.37.36c0 .8-.29 1.55-.87 2.23-.7.81-1.55 1.28-2.47 1.2-.01-.1-.02-.2-.02-.3 0-.77.34-1.59.93-2.26.3-.34.67-.62 1.13-.84.45-.22.88-.34 1.28-.36.01.11.02.21.02.33z"/></svg>
+      Download for macOS</a>
+    <a class="btn btn-outline" href="https://github.com/heysanil/mirrorball">View source on GitHub</a>
+  </div>
+  <p class="fine">macOS 26+ · Apple Silicon · v0.1.2</p>
+</div></section>
+</main>
+
+<!-- FOOTER -->
+<footer><div class="wrap">
+  <a class="brand" href="#top"><img src="assets/icon.png" style="width:26px;height:26px;border-radius:7px" alt="" width="26" height="26">Mirrorball</a>
+  <nav class="fl" aria-label="Footer">
+    <a href="https://github.com/heysanil/mirrorball">GitHub</a>
+    <a href="https://github.com/heysanil/mirrorball/releases">Releases</a>
+    <a href="https://github.com/heysanil/mirrorball/blob/main/LICENSE">License (GPL-3.0)</a>
+    <a href="https://github.com/heysanil">@heysanil</a>
+  </nav>
+  <div class="cr">Made by Sanil Chawla · © 2026 · A native macOS SSH port-forward manager.</div>
+</div></footer>
+
+<script>
+  (function(){
+    var nav=document.querySelector('.nav');
+    function onScroll(){ nav.classList.toggle('scrolled', window.scrollY>40); }
+    onScroll();
+    window.addEventListener('scroll', onScroll, {passive:true});
+  })();
+</script>
+</body>
+</html>
