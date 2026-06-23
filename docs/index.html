@@ -261,12 +261,12 @@
     <h1>Tunnels,<br>on a switch.</h1>
     <p class="lead">A dead-simple, native SSH port-forward manager. Flip one on to bring a forward up; if it drops — sleep, network blip, server hiccup — it quietly reconnects. Lives in your menu bar <em>and</em> a proper window.</p>
     <div class="cta">
-      <a class="btn btn-primary" href="https://github.com/heysanil/mirrorball/releases/latest">
+      <a class="btn btn-primary" data-dl href="https://github.com/heysanil/mirrorball/releases/latest">
         <svg viewBox="0 0 14 17" fill="currentColor" aria-hidden="true"><path d="M13.5 13.2c-.25.57-.54 1.1-.88 1.59-.46.66-.84 1.12-1.13 1.38-.45.42-.94.63-1.46.65-.37 0-.83-.11-1.35-.32-.53-.21-1.01-.32-1.46-.32-.47 0-.97.11-1.5.32-.53.21-.96.32-1.29.33-.5.02-1-.2-1.49-.66-.31-.28-.71-.76-1.19-1.43-.51-.72-.94-1.55-1.27-2.5-.34-1.02-.51-2-.51-2.95 0-1.08.23-2.01.7-2.78.36-.61.84-1.09 1.45-1.45.6-.35 1.26-.53 1.96-.55.39 0 .91.12 1.55.36.64.24 1.05.36 1.23.36.13 0 .58-.14 1.34-.42.72-.26 1.33-.37 1.83-.33 1.37.11 2.39.65 3.07 1.62-1.22.74-1.83 1.78-1.81 3.11.01 1.03.39 1.89 1.12 2.57.33.32.71.57 1.12.74-.09.26-.19.51-.3.76zM10.37.36c0 .8-.29 1.55-.87 2.23-.7.81-1.55 1.28-2.47 1.2-.01-.1-.02-.2-.02-.3 0-.77.34-1.59.93-2.26.3-.34.67-.62 1.13-.84.45-.22.88-.34 1.28-.36.01.11.02.21.02.33z"/></svg>
         Download for macOS</a>
       <a class="btn btn-ghost-light" href="https://github.com/heysanil/mirrorball">View on GitHub</a>
     </div>
-    <p class="meta">Free &amp; open source · macOS 26+ · Apple Silicon · v0.1.2</p>
+    <p class="meta">Free &amp; open source · macOS 26+ · Apple Silicon · <span class="js-ver">v0.1.2</span></p>
   </div>
   <svg class="glyph" viewBox="0 0 220 195" role="img" aria-label="Three hosts connected by SSH tunnels">
     <path class="edge" d="M58 60 L162 60"/>
@@ -408,12 +408,12 @@
   <h2>Get Mirrorball.</h2>
   <p>Download the disk image and drag Mirrorball into Applications. It keeps itself up to date from there.</p>
   <div class="cta">
-    <a class="btn btn-blue" href="https://github.com/heysanil/mirrorball/releases/latest">
+    <a class="btn btn-blue" data-dl href="https://github.com/heysanil/mirrorball/releases/latest">
       <svg viewBox="0 0 14 17" fill="currentColor" aria-hidden="true"><path d="M13.5 13.2c-.25.57-.54 1.1-.88 1.59-.46.66-.84 1.12-1.13 1.38-.45.42-.94.63-1.46.65-.37 0-.83-.11-1.35-.32-.53-.21-1.01-.32-1.46-.32-.47 0-.97.11-1.5.32-.53.21-.96.32-1.29.33-.5.02-1-.2-1.49-.66-.31-.28-.71-.76-1.19-1.43-.51-.72-.94-1.55-1.27-2.5-.34-1.02-.51-2-.51-2.95 0-1.08.23-2.01.7-2.78.36-.61.84-1.09 1.45-1.45.6-.35 1.26-.53 1.96-.55.39 0 .91.12 1.55.36.64.24 1.05.36 1.23.36.13 0 .58-.14 1.34-.42.72-.26 1.33-.37 1.83-.33 1.37.11 2.39.65 3.07 1.62-1.22.74-1.83 1.78-1.81 3.11.01 1.03.39 1.89 1.12 2.57.33.32.71.57 1.12.74-.09.26-.19.51-.3.76zM10.37.36c0 .8-.29 1.55-.87 2.23-.7.81-1.55 1.28-2.47 1.2-.01-.1-.02-.2-.02-.3 0-.77.34-1.59.93-2.26.3-.34.67-.62 1.13-.84.45-.22.88-.34 1.28-.36.01.11.02.21.02.33z"/></svg>
       Download for macOS</a>
     <a class="btn btn-outline" href="https://github.com/heysanil/mirrorball">View source on GitHub</a>
   </div>
-  <p class="fine">macOS 26+ · Apple Silicon · v0.1.2</p>
+  <p class="fine">macOS 26+ · Apple Silicon · <span class="js-ver">v0.1.2</span></p>
 </div></section>
 </main>
 
@@ -440,6 +440,31 @@
     if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches){
       document.querySelectorAll('svg').forEach(function(s){ if (s.pauseAnimations) s.pauseAnimations(); });
     }
+  })();
+
+  // Point the download buttons straight at the newest .dmg from the Sparkle
+  // appcast, so they track each release. The buttons keep a Releases-page href
+  // as a no-JS / offline fallback; this only upgrades it on success.
+  (function(){
+    var dls = document.querySelectorAll('[data-dl]');
+    if (!dls.length) return;
+    var SPARKLE = 'http://www.andymatuschak.org/xml-namespaces/sparkle';
+    fetch('appcast.xml', {cache:'no-cache'})
+      .then(function(r){ if (!r.ok) throw 0; return r.text(); })
+      .then(function(xml){
+        var doc = new DOMParser().parseFromString(xml, 'application/xml');
+        if (doc.getElementsByTagName('parsererror').length) throw 0;
+        var items = Array.prototype.slice.call(doc.getElementsByTagName('item'));
+        if (!items.length) throw 0;
+        function build(it){ var n = it.getElementsByTagNameNS(SPARKLE,'version')[0]; return n ? parseInt(n.textContent,10) || 0 : 0; }
+        var latest = items.reduce(function(a,b){ return build(b) >= build(a) ? b : a; });
+        var enc = latest.getElementsByTagName('enclosure')[0];
+        var url = enc && enc.getAttribute('url');
+        if (url) dls.forEach(function(a){ a.href = url; });
+        var sv = latest.getElementsByTagNameNS(SPARKLE,'shortVersionString')[0];
+        if (sv) document.querySelectorAll('.js-ver').forEach(function(e){ e.textContent = 'v' + sv.textContent.trim(); });
+      })
+      .catch(function(){ /* keep the Releases-page fallback href */ });
   })();
 </script>
 </body>
