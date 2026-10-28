@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'   # landing page + appcast (the release job commits the appcast here)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    # Same Namespace macOS runner as the Release DMG workflow.
+    runs-on: nscloud-macos-tahoe-arm64-6x14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          if [[ -d /Applications/Xcode_26.app ]]; then
+            sudo xcode-select -s /Applications/Xcode_26.app/Contents/Developer
+          fi
+          sudo xcodebuild -runFirstLaunch || true
+          xcodebuild -version
+
+      - name: Install Tuist
+        run: brew install tuist
+
+      - name: Generate project
+        run: |
+          tuist install
+          tuist generate --no-open
+
+      - name: Build
+        run: |
+          xcodebuild -workspace Mirrorball.xcworkspace -scheme Mirrorball \
+            -destination 'platform=macOS' build
+
+      # UI tests are excluded: XCUITest needs a GUI session with pre-granted
+      # Accessibility/automation (TCC) permission, which the runner doesn't have.
+      - name: Unit + integration tests
+        run: |
+          xcodebuild -workspace Mirrorball.xcworkspace -scheme Mirrorball \
+            -destination 'platform=macOS' \
+            -only-testing:MirrorballUnitTests -only-testing:MirrorballIntegrationTests \
+            test
