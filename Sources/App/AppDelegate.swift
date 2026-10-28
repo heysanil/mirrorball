@@ -11,6 +11,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `MIRRORBALL_DISABLE_UPDATER` / side-effects seams.
     let updater = Updater(enabled: !AppConfiguration.fromEnvironment().disableUpdater)
 
+    private let dockPresence = DockPresenceController(
+        notificationCenter: .default,
+        windows: { NSApplication.shared.windows },
+        setActivationPolicy: { policy in
+            let application = NSApplication.shared
+            if application.activationPolicy() != policy {
+                application.setActivationPolicy(policy)
+            }
+        }
+    )
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }

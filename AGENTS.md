@@ -110,6 +110,7 @@ Layered, with one-directional dependencies (`Views` → `State` → `Core`):
 Sources/
   App/      MirrorballApp (scenes: WindowGroup + MenuBarExtra + Settings),
             AppDelegate (NSApplicationDelegateAdaptor: quit teardown, keep-alive-in-menu-bar)
+            DockPresenceController (AppKit window notifications → Dock activation policy)
   Core/     pure/foundational, no SwiftUI:
             Forward, ForwardStatus, SSHAuthMethod      — model
             SSHArguments                                — pure Forward → argv
@@ -257,6 +258,16 @@ for direct downloads). The moving parts:
 
 ## UI conventions
 
+- `AppDelegate` owns `DockPresenceController`: when the last regular window closes,
+  switch `NSApplication` to `.accessory` (no Dock icon; menu bar and tunnels stay
+  alive). A regular window becoming main restores `.regular`, including reopening
+  the manager from the menu bar or opening Settings. Other visible or minimized
+  regular windows keep the Dock icon; panels (including the menu-bar popover) do
+  not count. The closing window is explicitly excluded because `willClose` fires
+  before it becomes invisible. `LSUIElement` remains false for normal launch.
+- Dock-presence tests inject a private notification center, window inventory, and
+  activation-policy callback; they never change the test host's activation policy.
+
 - Native first: `List`, grouped `Form`, system `Toggle(.switch)`, SF Symbols,
   `MenuBarExtra(.window)`, `Settings` scene (gives ⌘, for free).
 - The editor (`ForwardEditorSheet`) keeps the sheet open on a validation error and
@@ -329,6 +340,12 @@ Patterns:
 - **`SMAppService.mainApp` (login-at-login)** registers reliably only for a signed
   app in a stable location (ideally `/Applications`); from DerivedData/ad-hoc it may
   throw (the Settings UI surfaces the error rather than crashing).
+- **Local ad-hoc signing is not release signing.** Hardened-runtime ad-hoc builds
+  can fail to load Sparkle with a Team ID/library-validation error, even when both
+  binaries are ad-hoc signed. A local-only signing entitlement
+  `com.apple.security.cs.disable-library-validation` permits that build to launch;
+  do not add it to `Mirrorball.entitlements` or the release configuration. Preserve
+  the original app before reinstalling; Keychain access may prompt again.
 - Don't commit the generated `.xcodeproj`/`.xcworkspace`.
 
 ## Recipe: add a new SSH option

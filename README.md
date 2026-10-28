@@ -34,7 +34,7 @@ Built natively in **Swift + SwiftUI** to feel at home on macOS, it goes beyond t
 
 ## Features
 
-- **Menu bar + window** — a status-bar item with quick toggles (the glyph reflects aggregate state at a glance), plus a full management window. Closing the window keeps Mirrorball running in the menu bar.
+- **Menu bar + window** — a status-bar item with quick toggles (the glyph reflects aggregate state at a glance), plus a full management window. Closing the last window hides its Dock icon while Mirrorball and your tunnels keep running in the menu bar. Choose **Open Mirrorball** to bring back the window and Dock icon. Other open windows (including Settings) and minimized windows keep the Dock icon; the menu-bar popover does not.
 - **All three forward types** — local (`-L`), remote (`-R`), and dynamic SOCKS (`-D`).
 - **Auto-reconnect** — per-forward supervision with exponential backoff (1s → 30s); tunnels survive sleeps and blips. When a connection genuinely fails, the real `ssh` reason is surfaced instead of an endless silent retry.
 - **Rich SSH options** — identity file (`-i`), custom port (`-p`), jump host (`-J`), and free-form `-o Key=Value` options.
@@ -130,7 +130,8 @@ Each enabled forward gets its own `actor TunnelSupervisor` that owns an `ssh` `P
 
 ```
 Sources/
-  App/      MirrorballApp (scenes), AppDelegate (lifecycle, child teardown)
+  App/      MirrorballApp (scenes), AppDelegate (lifecycle, child teardown),
+            DockPresenceController (window-driven Dock visibility)
   Core/     Forward, ForwardStatus, SSHArguments (pure argv), TunnelSupervisor,
             Persistence, SSHConfigParser, SecretStore (Keychain), AskpassHelper,
             Notifier, LoginItem, AppConfiguration, ChildProcessRegistry, DraftForward
@@ -151,7 +152,7 @@ xcodebuild -workspace Mirrorball.xcworkspace -scheme Mirrorball \
 
 **80+ tests** across three targets:
 
-- **Unit** — pure logic: `ssh` argv construction, the model, JSON persistence, `~/.ssh/config` parsing, form validation, secret storage.
+- **Unit** — `ssh` argv construction, the model, JSON persistence, `~/.ssh/config` parsing, form validation, secret storage, and Dock visibility using injected window notifications and activation-policy callbacks.
 - **Integration** — the `TunnelSupervisor` against *real* spawned processes, driven by a fake-`ssh` harness (connect / drop / reconnect / fail / askpass injection), plus full `AppModel` end-to-end flows.
 - **UI** — XCUITest flows (add / validate / toggle / persist). These need a GUI session with automation permission; Xcode prompts on first run.
 
@@ -253,6 +254,14 @@ scripts/package-dmg.sh --version 1.2.3 --no-notarize  # smoke test, skip Apple r
 ```
 
 The DMG is written to the repository root as `Mirrorball-<version>.dmg` (gitignored).
+
+A personal **ad-hoc-signed** build is different from this release pipeline: it
+needs no Developer ID certificate or notarization, but may prompt again for
+Keychain access, and release auto-update behavior is not guaranteed. With hardened
+runtime enabled, an ad-hoc build loading Sparkle may need the app-specific
+`com.apple.security.cs.disable-library-validation` entitlement. Keep that exception
+local; it is not part of `Mirrorball.entitlements` or the release configuration.
+Back up the installed app before replacing it.
 
 ## License
 
