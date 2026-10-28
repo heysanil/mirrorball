@@ -8,6 +8,15 @@
     <!-- scripts/package-dmg.sh inserts each new release immediately below the marker, keeping the feed newest-first. -->
     <!-- MIRRORBALL_APPCAST_ITEMS -->
     <item>
+      <title>Version 0.1.3</title>
+      <sparkle:version>38</sparkle:version>
+      <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/heysanil/mirrorball/releases/tag/v0.1.3</sparkle:releaseNotesLink>
+      <pubDate>Wed, 28 Oct 2026 17:18:42 +0000</pubDate>
+      <enclosure url="https://github.com/heysanil/mirrorball/releases/download/v0.1.3/Mirrorball-0.1.3.dmg" sparkle:edSignature="GYXma62kDKu2qMnVgAK/Q7179vaV3w13jw2rch//guxjQqsQZA7G6cu+4q6XzwDFcFQbpdqY4MO118yeL+j0AA==" length="1765676" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 0.1.2</title>
       <sparkle:version>31</sparkle:version>
       <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
