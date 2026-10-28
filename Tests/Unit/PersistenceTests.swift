@@ -4,6 +4,11 @@ import Testing
 
 @Suite("Persistence")
 struct PersistenceTests {
+    private func backupFiles(in dir: URL) throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("forwards.corrupt-") }
+    }
+
     private func tempDir() -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("mirrorball-tests-\(UUID().uuidString)", isDirectory: true)
@@ -34,6 +39,55 @@ struct PersistenceTests {
         let store = Persistence(configDirectory: dir)
         try "not json {{{".data(using: .utf8)!.write(to: store.fileURL)
         #expect(store.load().isEmpty)
+    }
+
+    @Test("A malformed file is backed up before degrading to empty")
+    func malformedFileIsBackedUp() throws {
+        let dir = tempDir()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let store = Persistence(configDirectory: dir)
+        let original = Data("not json {{{".utf8)
+        try original.write(to: store.fileURL)
+
+        #expect(store.load().isEmpty)
+        let backups = try backupFiles(in: dir)
+        #expect(backups.count == 1)
+        #expect(try Data(contentsOf: try #require(backups.first)) == original)
+    }
+
+    @Test("One undecodable forward is skipped, the rest load, and the file is backed up")
+    func partiallyInvalidFile() throws {
+        let dir = tempDir()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let store = Persistence(configDirectory: dir)
+        let good = Forward(name: "Good", kind: .local, target: "a", listenPort: 1, remotePort: 1)
+        try store.save([good])
+
+        // Splice an entry with an unknown `kind` (e.g. written by a newer version)
+        // in front of the valid one.
+        var array = try #require(
+            JSONSerialization.jsonObject(with: Data(contentsOf: store.fileURL)) as? [Any]
+        )
+        var bad = try #require(array.first as? [String: Any])
+        bad["kind"] = "teleport"
+        array.insert(bad, at: 0)
+        let original = try JSONSerialization.data(withJSONObject: array)
+        try original.write(to: store.fileURL)
+
+        #expect(store.load() == [good])
+        let backups = try backupFiles(in: dir)
+        #expect(backups.count == 1)
+        #expect(try Data(contentsOf: try #require(backups.first)) == original)
+    }
+
+    @Test("A clean load or a missing file creates no backup")
+    func noBackupWhenNothingWasLost() throws {
+        let dir = tempDir()
+        let store = Persistence(configDirectory: dir)
+        _ = store.load()
+        try store.save([Forward(name: "ok", kind: .dynamic, target: "b", listenPort: 1080)])
+        _ = store.load()
+        #expect(try backupFiles(in: dir).isEmpty)
     }
 
     @Test("Save overwrites previous contents")
