@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// Native Settings window (⌘,). Hosts the launch-at-login toggle and an About
-/// section. Grouped form styling matches System Settings.
+/// Native Settings window (⌘,). Hosts the launch-at-login and Dock-icon toggles,
+/// updates, and an About section. Grouped form styling matches System Settings.
 struct SettingsView: View {
     @Environment(Updater.self) private var updater
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var loginError: String?
     @State private var autoUpdate = false
+    @AppStorage(DockPresenceController.hidesDockIconKey) private var hidesDockIcon = true
 
     var body: some View {
         Form {
@@ -15,6 +16,8 @@ struct SettingsView: View {
                     .onChange(of: launchAtLogin) { _, newValue in
                         applyLaunchAtLogin(newValue)
                     }
+                Toggle("Hide Dock icon when no windows are open", isOn: $hidesDockIcon)
+                    .accessibilityIdentifier(A11y.Settings.hideDockIcon)
                 if let loginError {
                     Label(loginError, systemImage: "exclamationmark.triangle")
                         .font(.caption)
@@ -51,7 +54,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 380)
+        .frame(width: 440, height: 420)
         .onAppear {
             launchAtLogin = LoginItem.isEnabled
             autoUpdate = updater.automaticallyChecksForUpdates

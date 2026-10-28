@@ -34,7 +34,7 @@ Built natively in **Swift + SwiftUI** to feel at home on macOS, it goes beyond t
 
 ## Features
 
-- **Menu bar + window** — a status-bar item with quick toggles (the glyph reflects aggregate state at a glance), plus a full management window. Closing the window keeps Mirrorball running in the menu bar.
+- **Menu bar + window** — a status-bar item with quick toggles (the glyph reflects aggregate state at a glance), plus a full management window. Closing the last window hides the Dock icon while Mirrorball and your tunnels keep running in the menu bar; **Open Mirrorball** brings both back. Open or minimized windows keep the icon. Prefer a permanent Dock icon? Turn off **Hide Dock icon when no windows are open** in Settings.
 - **All three forward types** — local (`-L`), remote (`-R`), and dynamic SOCKS (`-D`).
 - **Auto-reconnect** — per-forward supervision with exponential backoff (1s → 30s); tunnels survive sleeps and blips. When a connection genuinely fails, the real `ssh` reason is surfaced instead of an endless silent retry.
 - **Rich SSH options** — identity file (`-i`), custom port (`-p`), jump host (`-J`), and free-form `-o Key=Value` options.
@@ -130,7 +130,8 @@ Each enabled forward gets its own `actor TunnelSupervisor` that owns an `ssh` `P
 
 ```
 Sources/
-  App/      MirrorballApp (scenes), AppDelegate (lifecycle, child teardown)
+  App/      MirrorballApp (scenes), AppDelegate (lifecycle, child teardown),
+            DockPresenceController (window-driven Dock visibility)
   Core/     Forward, ForwardStatus, SSHArguments (pure argv), TunnelSupervisor,
             Persistence, SSHConfigParser, SecretStore (Keychain), AskpassHelper,
             Notifier, LoginItem, AppConfiguration, ChildProcessRegistry, DraftForward
@@ -151,7 +152,7 @@ xcodebuild -workspace Mirrorball.xcworkspace -scheme Mirrorball \
 
 **80+ tests** across three targets:
 
-- **Unit** — pure logic: `ssh` argv construction, the model, JSON persistence, `~/.ssh/config` parsing, form validation, secret storage.
+- **Unit** — `ssh` argv construction, the model, JSON persistence, `~/.ssh/config` parsing, form validation, secret storage, and Dock visibility using injected window notifications and activation-policy callbacks.
 - **Integration** — the `TunnelSupervisor` against *real* spawned processes, driven by a fake-`ssh` harness (connect / drop / reconnect / fail / askpass injection), plus full `AppModel` end-to-end flows.
 - **UI** — XCUITest flows (add / validate / toggle / persist). These need a GUI session with automation permission; Xcode prompts on first run.
 

@@ -88,6 +88,13 @@ struct MenuBarContent: View {
     }
 
     private func openManager() {
+        // Restore the Dock icon *before* opening + activating. Flipping
+        // `.accessory` → `.regular` on an already-active app can leave the main
+        // menu bar missing until the app is reactivated.
+        let app = NSApplication.shared
+        if app.activationPolicy() != .regular {
+            app.setActivationPolicy(.regular)
+        }
         openWindow(id: "manager")
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
