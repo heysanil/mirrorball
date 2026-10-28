@@ -218,6 +218,33 @@ Every spawned `ssh` registers here; `AppDelegate.applicationWillTerminate` calls
 - Persistence: pretty JSON at `~/Library/Application Support/Mirrorball/forwards.json`,
   atomic writes, graceful degradation (missing/corrupt → empty list).
 
+## Dock presence
+
+Mirrorball is a menu-bar utility that also has windows, so its Dock icon tracks
+whether any window is open. `LSUIElement` stays `false`, so launch is a normal
+Dock app.
+
+- **`DockPresenceController`** (`Sources/App/DockPresenceController.swift`), owned by
+  `AppDelegate`, observes `NSWindow.willCloseNotification` /
+  `didBecomeMainNotification`. When the last regular window closes it switches
+  `NSApplication` to `.accessory` (no Dock icon; menu bar + tunnels keep running);
+  a regular window becoming main restores `.regular`.
+- A "regular" window is **titled and not an `NSPanel`** (the menu-bar popover is a
+  panel). Visible *or* minimized regular windows keep the Dock icon. ⚠️ Don't
+  filter with `canBecomeMain` — AppKit returns `false` for any non-visible window,
+  so minimized windows would be ignored and stranded when their Dock tile vanishes.
+- The closing window is excluded explicitly: `willClose` fires while it's still
+  visible.
+- `MenuBarContent.openManager()` sets `.regular` **before** `openWindow` + `activate`;
+  flipping the policy on an already-active app can leave the main menu bar missing.
+- **Setting**: "Hide Dock icon when no windows are open" in `SettingsView`, stored
+  under `UserDefaults` key `DockPresenceController.hidesDockIconKey`
+  (`hideDockIconWhenWindowsClosed`), default **on**. Read via
+  `DockPresenceController.hidesDockIcon(in:)` so "never set" means on.
+- Tests inject a private `NotificationCenter`, window inventory, preference, and
+  activation-policy callback; they never change the test host's policy. The fake
+  window models AppKit (`canBecomeMain` only while visible).
+
 ## Auto-update (Sparkle)
 
 Mirrorball updates itself with **Sparkle 2** (the App Store provides no update path
@@ -258,23 +285,13 @@ for direct downloads). The moving parts:
 
 ## UI conventions
 
-- `AppDelegate` owns `DockPresenceController`: when the last regular window closes,
-  switch `NSApplication` to `.accessory` (no Dock icon; menu bar and tunnels stay
-  alive). A regular window becoming main restores `.regular`, including reopening
-  the manager from the menu bar or opening Settings. Other visible or minimized
-  regular windows keep the Dock icon; panels (including the menu-bar popover) do
-  not count. The closing window is explicitly excluded because `willClose` fires
-  before it becomes invisible. `LSUIElement` remains false for normal launch.
-- Dock-presence tests inject a private notification center, window inventory, and
-  activation-policy callback; they never change the test host's activation policy.
-
 - Native first: `List`, grouped `Form`, system `Toggle(.switch)`, SF Symbols,
   `MenuBarExtra(.window)`, `Settings` scene (gives ⌘, for free).
 - The editor (`ForwardEditorSheet`) keeps the sheet open on a validation error and
   only `dismiss()`es on success. **Stored secrets are never read back into the
   form** — a "🔒 stored" state with Change/Remove is shown instead.
 - Every interactive control gets an accessibility identifier from `A11y`
-  (`Sources/Shared/AccessibilityIdentifiers.swift`) — the single source of truth
+  (`Sources/Shared/AccessibilityIdentifiers.swift`, e.g. `A11y.Settings.hideDockIcon`) — the single source of truth
   shared with the UI tests.
 
 ## Configuration & test seams (env vars)
@@ -340,12 +357,6 @@ Patterns:
 - **`SMAppService.mainApp` (login-at-login)** registers reliably only for a signed
   app in a stable location (ideally `/Applications`); from DerivedData/ad-hoc it may
   throw (the Settings UI surfaces the error rather than crashing).
-- **Local ad-hoc signing is not release signing.** Hardened-runtime ad-hoc builds
-  can fail to load Sparkle with a Team ID/library-validation error, even when both
-  binaries are ad-hoc signed. A local-only signing entitlement
-  `com.apple.security.cs.disable-library-validation` permits that build to launch;
-  do not add it to `Mirrorball.entitlements` or the release configuration. Preserve
-  the original app before reinstalling; Keychain access may prompt again.
 - Don't commit the generated `.xcodeproj`/`.xcworkspace`.
 
 ## Recipe: add a new SSH option

@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let dockPresence = DockPresenceController(
         notificationCenter: .default,
         windows: { NSApplication.shared.windows },
+        hidesDockIcon: { DockPresenceController.hidesDockIcon(in: .standard) },
         setActivationPolicy: { policy in
             let application = NSApplication.shared
             if application.activationPolicy() != policy {

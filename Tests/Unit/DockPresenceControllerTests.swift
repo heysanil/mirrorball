@@ -27,17 +27,21 @@ struct DockPresenceControllerTests {
         let minimized = TestWindow()
         minimized.reportsVisible = false
         minimized.reportsMiniaturized = true
+        // Regression guard: like AppKit, the fake reports `canBecomeMain == false`
+        // once it's not visible, so the controller must not rely on it.
+        #expect(!minimized.canBecomeMain)
         let context = Context(windows: [window, minimized])
         context.post(NSWindow.willCloseNotification, window: window)
         #expect(context.policies.isEmpty)
     }
 
-    @Test("Hidden windows and menu-bar panels do not keep the Dock icon")
+    @Test("Hidden windows, untitled windows, and menu-bar panels do not keep the Dock icon")
     func hiddenWindowsAndPanels() {
         let window = TestWindow()
         let hidden = TestWindow()
         hidden.reportsVisible = false
-        let context = Context(windows: [window, hidden, TestPanel()])
+        let borderless = TestWindow(styleMask: .borderless)
+        let context = Context(windows: [window, hidden, borderless, TestPanel()])
         context.post(NSWindow.willCloseNotification, window: window)
         #expect(context.policies == [.accessory])
     }
@@ -60,25 +64,42 @@ struct DockPresenceControllerTests {
         #expect(context.policies.isEmpty)
     }
 
-    @Test("Minimizing a window does not hide the Dock icon")
-    func minimizingWindow() {
+    @Test("With the setting off, closing the last window keeps the Dock icon")
+    func settingDisabled() {
         let window = TestWindow()
-        let context = Context(windows: [window])
-        context.post(NSWindow.didMiniaturizeNotification, window: window)
+        let context = Context(windows: [window], hidesDockIcon: false)
+        context.post(NSWindow.willCloseNotification, window: window)
         #expect(context.policies.isEmpty)
     }
 
+    @Test("The preference defaults to hiding and honours an explicit opt-out")
+    func preferenceDefault() throws {
+        let suite = "co.sanil.mirrorball.tests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        #expect(DockPresenceController.hidesDockIcon(in: defaults))
+        defaults.set(false, forKey: DockPresenceController.hidesDockIconKey)
+        #expect(!DockPresenceController.hidesDockIcon(in: defaults))
+    }
+
+    /// Models AppKit's real behaviour: `canBecomeMain` is only true while visible.
     private final class TestWindow: NSWindow {
         var reportsVisible = true
         var reportsMiniaturized = false
         override var isVisible: Bool { reportsVisible }
         override var isMiniaturized: Bool { reportsMiniaturized }
-        override var canBecomeMain: Bool { true }
+        override var canBecomeMain: Bool { reportsVisible }
+
+        init(styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable]) {
+            super.init(contentRect: .zero, styleMask: styleMask, backing: .buffered, defer: true)
+        }
     }
 
     private final class TestPanel: NSPanel {
         override var isVisible: Bool { true }
-        override var canBecomeMain: Bool { true }
+        init() {
+            super.init(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
+        }
     }
 
     @MainActor
@@ -87,10 +108,11 @@ struct DockPresenceControllerTests {
         var policies: [NSApplication.ActivationPolicy] = []
         var controller: DockPresenceController!
 
-        init(windows: [NSWindow]) {
+        init(windows: [NSWindow], hidesDockIcon: Bool = true) {
             controller = DockPresenceController(
                 notificationCenter: notificationCenter,
                 windows: { windows },
+                hidesDockIcon: { hidesDockIcon },
                 setActivationPolicy: { [weak self] in self?.policies.append($0) }
             )
         }

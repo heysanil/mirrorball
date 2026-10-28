@@ -40,4 +40,8 @@ enum A11y {
         static let jumpHost = "mb.editor.jumpHost"
         static let extraOptions = "mb.editor.extraOptions"
     }
+
+    enum Settings {
+        static let hideDockIcon = "mb.settings.hideDockIcon"
+    }
 }
