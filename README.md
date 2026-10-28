@@ -165,6 +165,10 @@ Tests use environment hooks so they never touch your real environment:
 | `MIRRORBALL_DISABLE_SIDE_EFFECTS` | Skip notifications + login-item registration |
 | `MIRRORBALL_SEED` | Seed forwards as a JSON array on launch |
 
+**CI** (`.github/workflows/ci.yml`) builds the app and runs the unit + integration
+tests on every pull request and push to `main`, on the same Namespace macOS runner
+as releases. UI tests are not run in CI (they need automation permission).
+
 Contributions welcome.
 
 ## Building & releasing

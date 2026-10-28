@@ -320,6 +320,12 @@ tests.
 - **UI** (`Tests/UI`, XCUITest): launches the app with the env seams above.
   `UITestContext` writes the fake-ssh + temp config and wires `launchEnvironment`.
 
+**CI**: `.github/workflows/ci.yml` runs on every PR and push to `main` (docs-only
+pushes skipped) on the same Namespace runner as `release.yml`
+(`nscloud-macos-tahoe-arm64-6x14`): `tuist install` + `tuist generate`, a build, then
+the unit + integration targets. UI tests are excluded — the runner has no TCC
+automation permission. Keep the workflow's commands in sync with the TL;DR above.
+
 Patterns:
 
 - **TDD for bug fixes**: write a failing test that reproduces the bug first
