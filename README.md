@@ -122,6 +122,8 @@ Forwards are stored as JSON in your Application Support directory:
 ]
 ```
 
+If you hand-edit this file and Mirrorball can't read an entry, that entry is skipped and the rest still load. Before anything is dropped, the original file is copied to `forwards.corrupt-<timestamp>.json` in the same folder, so nothing is lost.
+
 Secrets (passwords / key passphrases) are **not** written here — they live in the Keychain, keyed by the forward's id. Each running forward becomes an `ssh -N … -L/-R/-D …` invocation with `ServerAliveInterval` keepalives and `ExitOnForwardFailure=yes` so failures surface instead of hanging.
 
 ## How it works

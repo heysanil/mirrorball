@@ -216,7 +216,12 @@ Every spawned `ssh` registers here; `AppDelegate.applicationWillTerminate` calls
   `.task`s — requests notification auth, loads host aliases, auto-starts enabled
   forwards.
 - Persistence: pretty JSON at `~/Library/Application Support/Mirrorball/forwards.json`,
-  atomic writes, graceful degradation (missing/corrupt → empty list).
+  atomic writes, graceful degradation. Load never silently loses data: entries
+  decode one at a time (a bad entry is skipped, the rest load), and if anything is
+  dropped — one entry or the whole file — the original is first copied to
+  `forwards.corrupt-<yyyyMMdd-HHmmss-SSS>.json` beside it. That copy matters because
+  every CRUD call re-saves the list, which would otherwise overwrite the only record
+  of what failed to load. New `Forward` fields must still use `decodeIfPresent`.
 
 ## Dock presence
 
